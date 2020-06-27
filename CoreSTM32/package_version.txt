@@ -1,0 +1,4 @@
+commit 5e43e63e80519c971217285718539ef3b6189a14
+Author: Frederic Pillon <frederic.pillon@st.com>
+
+    Update to release 1.7.0 version
