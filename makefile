@@ -212,4 +212,7 @@ clean: distclean
 distclean:
 	-rm -rf $(BUILD_DIR)/ 
 
+upload:
+	ST-LINK_CLI.exe -c SWD -P "$(BUILD_DIR)/firmware.bin" 0x8008000 -Rst -Run
+
 .PHONY: all firmware clean distclean $(BUILD_DIR)/$(OUTPUT_NAME).elf

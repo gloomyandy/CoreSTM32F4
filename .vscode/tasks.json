@@ -41,6 +41,17 @@
           "isDefault": true
         },
         "problemMatcher": "$gcc"
+      },
+      {
+        "label": "upload firmware",
+        "type": "shell",
+        "command": "make upload",
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": "$gcc"
       }
+
     ]
   }
