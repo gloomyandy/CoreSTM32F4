@@ -16,8 +16,8 @@
         "request": "launch",
         "type": "cortex-debug",
         "servertype": "openocd",
-        "configFiles": ["C:\\Users\\Andy\\Documents\\GitHub\\CoreSTM32-2\\.vscode\\openocd.cfg"],
-        "svdFile": "C:\\Users\\Andy\\Documents\\GitHub\\CoreSTM32-2\\.vscode\\STM32F40x.svd"
+        "configFiles": ["C:\\Users\\Andy\\GitHub\\stm\\CoreSTM32\\.vscode\\openocd.cfg"],
+        "svdFile": "C:\\Users\\Andy\\\\GitHub\\stm\\CoreSTM32\\.vscode\\STM32F40x.svd"
         },
 
     ]
