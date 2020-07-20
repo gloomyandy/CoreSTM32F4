@@ -27,6 +27,7 @@ extern "C" {
 //This is the list of the IOs configured
 uint32_t g_anOutputPinConfigured[MAX_NB_PORT] = {0};
 #endif
+#if 0
 
 static int _readResolution = 10;
 static int _writeResolution = 8;
@@ -131,7 +132,7 @@ void analogWrite(uint32_t ulPin, uint32_t ulValue)
       }
   }
 }
-
+#endif
 #ifdef __cplusplus
 }
 #endif

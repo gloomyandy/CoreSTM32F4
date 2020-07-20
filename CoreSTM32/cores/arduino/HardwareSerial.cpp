@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include "Arduino.h"
 #include "HardwareSerial.h"
-
+#if 0
 #if defined(HAL_UART_MODULE_ENABLED)
 #if defined(HAVE_HWSERIAL1) || defined(HAVE_HWSERIAL2) || defined(HAVE_HWSERIAL3) ||\
     defined(HAVE_HWSERIAL4) || defined(HAVE_HWSERIAL5) || defined(HAVE_HWSERIAL6) ||\
@@ -455,4 +455,5 @@ void HardwareSerial::setTx(PinName _tx)
 {
   _serial.pin_tx = _tx;
 }
+#endif
 #endif // HAL_UART_MODULE_ENABLED

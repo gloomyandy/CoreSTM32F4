@@ -56,7 +56,7 @@ extern "C" {
 #else
   #error "no match MCU defined"
 #endif
-
+#if 0
 #if STM32F4X_PIN_NUM >= 64  //64 pins mcu, 51 gpio
   #define PC13  0
   #define PC14  1 //OSC32_IN
@@ -207,13 +207,13 @@ extern "C" {
   #define PI6   (114+STM32F4X_ADC_NUM) //1:TIM8_CH2
   #define PI7   (115+STM32F4X_ADC_NUM) //1:TIM8_CH3
 #endif
-
+#endif
 
 // This must be a literal
 #define NUM_DIGITAL_PINS        (STM32F4X_GPIO_NUM)
 // This must be a literal with a value less than or equal to MAX_ANALOG_INPUTS
 #define NUM_ANALOG_INPUTS       (STM32F4X_ADC_NUM)
-#define NUM_ANALOG_FIRST        35
+//#define NUM_ANALOG_FIRST        35
 
 // Below ADC, DAC and PWM definitions already done in the core
 // Could be redefined here if needed
@@ -229,25 +229,25 @@ extern "C" {
 // Below SPI and I2C definitions already done in the core
 // Could be redefined here if differs from the default one
 // SPI Definitions
-#define PIN_SPI_MOSI            PB15
-#define PIN_SPI_MISO            PB14
-#define PIN_SPI_SCK             PB13
-#define PIN_SPI_SS              PB12
+//#define PIN_SPI_MOSI            PB15
+//#define PIN_SPI_MISO            PB14
+//#define PIN_SPI_SCK             PB13
+//#define PIN_SPI_SS              PB12
 
 // I2C Definitions
-#define PIN_WIRE_SDA            PB7
-#define PIN_WIRE_SCL            PB6
+//#define PIN_WIRE_SDA            PB7
+//#define PIN_WIRE_SCL            PB6
 
 // Timer Definitions
 //Do not use timer used by PWM pins when possible. See PinMap_PWM in PeripheralPins.c
-#define TIMER_TONE              TIM6
+//#define TIMER_TONE              TIM6
 
 // Do not use basic timer: OC is required
-#define TIMER_SERVO             TIM2  //TODO: advanced-control timers don't work
+//#define TIMER_SERVO             TIM2  //TODO: advanced-control timers don't work
 
 // UART Definitions
 // Define here Serial instance number to map on Serial generic name
-#define SERIAL_UART_INSTANCE    1 //ex: 2 for Serial2 (USART2)
+//#define SERIAL_UART_INSTANCE    1 //ex: 2 for Serial2 (USART2)
 // DEBUG_UART could be redefined to print on another instance than 'Serial'
 //#define DEBUG_UART              ((USART_TypeDef *) U(S)ARTX) // ex: USART3
 // DEBUG_UART baudrate, default: 9600 if not defined
@@ -257,8 +257,8 @@ extern "C" {
 
 // Default pin used for 'Serial' instance (ex: ST-Link)
 // Mandatory for Firmata
-#define PIN_SERIAL_RX           PA10
-#define PIN_SERIAL_TX           PA9
+//#define PIN_SERIAL_RX           PA10
+//#define PIN_SERIAL_TX           PA9
 
 /* Extra HAL modules */
 #define HAL_PCD_MODULE_ENABLED
@@ -286,6 +286,6 @@ extern "C" {
 //
 // SERIAL_PORT_HARDWARE_OPEN  Hardware serial ports which are open for use.  Their RX & TX
 //                            pins are NOT connected to anything by default.
-#define SERIAL_PORT_MONITOR     Serial
-#define SERIAL_PORT_HARDWARE    Serial1
+//#define SERIAL_PORT_MONITOR     Serial
+//#define SERIAL_PORT_HARDWARE    Serial1
 #endif

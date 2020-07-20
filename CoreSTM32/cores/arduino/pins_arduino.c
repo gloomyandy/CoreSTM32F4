@@ -21,7 +21,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#if 0
 WEAK uint32_t pinNametoDigitalPin(PinName p)
 {
   uint32_t i = NUM_DIGITAL_PINS;
@@ -66,7 +66,7 @@ PinName analogInputToPinName(uint32_t pin)
   }
   return pn;
 }
-
+#endif
 #ifdef __cplusplus
 }
 #endif

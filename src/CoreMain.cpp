@@ -65,19 +65,20 @@ extern "C" [[noreturn]] void MainTask(void *pvParameters) noexcept
     }
 }
 
-uint32_t discoLights[] = {PB10, PE12, PG8, PE15, PE10, PG5};
+
+uint32_t discoLights[] = {PB_10, PE_12, PG_8, PE_15, PE_10, PG_5};
 extern "C" [[noreturn]] void LEDTask(void *pvParameters) noexcept
 {
     delay(2000);
     printf("LED task running....");
-    pinMode(PA7, OUTPUT);
+    pinMode(PA_7, OUTPUT);
     int i = 0;
     for(;;)
     {
         pinMode(discoLights[i], OUTPUT);
-        digitalWrite(PA7, 0);
+        digitalWrite(PA_7, 0);
         delay(500);
-        digitalWrite(PA7, 1);
+        digitalWrite(PA_7, 1);
         delay(500);
         pinMode(discoLights[i], INPUT);
         i = (i+1) % 6;

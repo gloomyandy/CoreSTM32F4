@@ -56,7 +56,7 @@ extern "C" {
 #else
   #error "no match MCU defined"
 #endif
-
+#if 0
 #if STM32F4X_PIN_NUM >= 64  //64 pins mcu, 51 gpio
   #define PC13  0
   #define PC14  1 //OSC32_IN
@@ -208,12 +208,12 @@ extern "C" {
   #define PI7   (115+STM32F4X_ADC_NUM) //1:TIM8_CH3
 #endif
 
-
+#endif
 // This must be a literal
 #define NUM_DIGITAL_PINS        (STM32F4X_GPIO_NUM)
 // This must be a literal with a value less than or equal to MAX_ANALOG_INPUTS
 #define NUM_ANALOG_INPUTS       (STM32F4X_ADC_NUM)
-#define NUM_ANALOG_FIRST        35
+//#define NUM_ANALOG_FIRST        35
 
 // Below ADC, DAC and PWM definitions already done in the core
 // Could be redefined here if needed
@@ -239,33 +239,33 @@ extern "C" {
 // Below SPI and I2C definitions already done in the core
 // Could be redefined here if differs from the default one
 // SPI Definitions
-#define PIN_SPI_MOSI            PB15
-#define PIN_SPI_MISO            PB14
-#define PIN_SPI_SCK             PB13
-#define PIN_SPI_SS              PB12
+//#define PIN_SPI_MOSI            PB15
+//#define PIN_SPI_MISO            PB14
+//#define PIN_SPI_SCK             PB13
+//#define PIN_SPI_SS              PB12
 
 // I2C Definitions
-#if STM32F4X_PIN_NUM >= 176
-  #define PIN_WIRE_SDA          PH5
-  #define PIN_WIRE_SCL          PH4
-#else
-  #define PIN_WIRE_SDA          PB7
-  #define PIN_WIRE_SCL          PB6
-#endif
+//#if STM32F4X_PIN_NUM >= 176
+//  #define PIN_WIRE_SDA          PH5
+//  #define PIN_WIRE_SCL          PH4
+//#else
+//  #define PIN_WIRE_SDA          PB7
+//  #define PIN_WIRE_SCL          PB6
+//#endif
 
 // Timer Definitions
 //Do not use timer used by PWM pins when possible. See PinMap_PWM in PeripheralPins.c
-#define TIMER_TONE              TIM2
-#define TIMER_SERVO             TIM5 // Only 1 Servo PIN on SKR-PRO, so use the same timer as defined in PeripheralPins
-#define TIMER_SERIAL            TIM7
+//#define TIMER_TONE              TIM2
+//#define TIMER_SERVO             TIM5 // Only 1 Servo PIN on SKR-PRO, so use the same timer as defined in PeripheralPins
+//#define TIMER_SERIAL            TIM7
 
 // UART Definitions
 //#define ENABLE_HWSERIAL1        done automatically by the #define SERIAL_UART_INSTANCE below
-#define ENABLE_HWSERIAL3
-#define ENABLE_HWSERIAL6
+//#define ENABLE_HWSERIAL3
+//#define ENABLE_HWSERIAL6
 
 // Define here Serial instance number to map on Serial generic name (if not already used by SerialUSB)
-#define SERIAL_UART_INSTANCE    1 //1 for Serial = Serial1 (USART1)
+//#define SERIAL_UART_INSTANCE    1 //1 for Serial = Serial1 (USART1)
 
 // DEBUG_UART could be redefined to print on another instance than 'Serial'
 //#define DEBUG_UART              ((USART_TypeDef *) U(S)ARTX) // ex: USART3
@@ -276,19 +276,19 @@ extern "C" {
 
 // Default pin used for 'Serial' instance (ex: ST-Link)
 // Mandatory for Firmata
-#define PIN_SERIAL_RX           PA10
-#define PIN_SERIAL_TX           PA9
+//#define PIN_SERIAL_RX           PA10
+//#define PIN_SERIAL_TX           PA9
 
 // Optional PIN_SERIALn_RX and PIN_SERIALn_TX where 'n' is the U(S)ART number
 // Used when user instanciate a hardware Serial using its peripheral name.
 // Example: HardwareSerial mySerial(USART3);
 // will use PIN_SERIAL3_RX and PIN_SERIAL3_TX if defined.
-#define PIN_SERIAL1_RX          PA10
-#define PIN_SERIAL1_TX          PA9
-#define PIN_SERIAL3_RX          PD9
-#define PIN_SERIAL3_TX          PD8
-#define PIN_SERIAL6_RX          PC7
-#define PIN_SERIAL6_TX          PC6
+//#define PIN_SERIAL1_RX          PA10
+//#define PIN_SERIAL1_TX          PA9
+//#define PIN_SERIAL3_RX          PD9
+//#define PIN_SERIAL3_TX          PD8
+//#define PIN_SERIAL6_RX          PC7
+//#define PIN_SERIAL6_TX          PC6
 //#define PIN_SERIALLP1_RX        x // For LPUART1 RX
 //#define PIN_SERIALLP1_TX        x // For LPUART1 TX
 
@@ -315,8 +315,8 @@ extern "C" {
 //
 // SERIAL_PORT_HARDWARE_OPEN  Hardware serial ports which are open for use.  Their RX & TX
 //                            pins are NOT connected to anything by default.
-#define SERIAL_PORT_MONITOR         Serial
-#define SERIAL_PORT_HARDWARE        Serial1
-#define SERIAL_PORT_HARDWARE_OPEN   Serial3
-#define SERIAL_PORT_HARDWARE_OPEN1  Serial6
+//#define SERIAL_PORT_MONITOR         Serial
+//#define SERIAL_PORT_HARDWARE        Serial1
+//#define SERIAL_PORT_HARDWARE_OPEN   Serial3
+//#define SERIAL_PORT_HARDWARE_OPEN1  Serial6
 #endif
