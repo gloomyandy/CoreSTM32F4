@@ -27,7 +27,6 @@ extern "C" {
 //This is the list of the IOs configured
 uint32_t g_anOutputPinConfigured[MAX_NB_PORT] = {0};
 #endif
-#if 0
 
 static int _readResolution = 10;
 static int _writeResolution = 8;
@@ -122,17 +121,16 @@ void analogWrite(uint32_t ulPin, uint32_t ulValue)
       {
         //DIGITAL PIN ONLY
         // Defaults to digital write
-        pinMode(ulPin, OUTPUT);
         ulValue = mapResolution(ulValue, _writeResolution, 8);
         if (ulValue < 128) {
-          digitalWrite(ulPin, LOW);
+          pinMode(ulPin, OUTPUT_LOW);
         } else {
-          digitalWrite(ulPin, HIGH);
+          pinMode(ulPin, OUTPUT_HIGH);
         }
       }
   }
 }
-#endif
+
 #ifdef __cplusplus
 }
 #endif

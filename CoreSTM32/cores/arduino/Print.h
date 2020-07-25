@@ -22,87 +22,62 @@
 
 #include <inttypes.h>
 #include <stdio.h> // for size_t
-
-#include "WString.h"
-#include "Printable.h"
+#include <string.h>
 
 #define DEC 10
 #define HEX 16
 #define OCT 8
 #define BIN 2
 
-// uncomment next line to support printing of 64 bit ints.
-#define SUPPORT_LONGLONG
+class Print
+{
+private:
+	int write_error;
+	size_t printNumber(unsigned long, uint8_t) noexcept;
+	size_t printFloat(double, uint8_t) noexcept;
 
-class Print {
-  private:
-    int write_error;
-    size_t printNumber(unsigned long, uint8_t);
-#ifdef SUPPORT_LONGLONG
-    void printLLNumber(uint64_t, uint8_t);
-#endif
-    size_t printFloat(double, uint8_t);
-  protected:
-    void setWriteError(int err = 1)
-    {
-      write_error = err;
-    }
-  public:
-    Print() : write_error(0) {}
+protected:
+	void setWriteError(int err = 1) noexcept { write_error = err; }
 
-    int getWriteError()
+public:
+    Print() noexcept : write_error(0) {}
+    virtual ~Print() {}
+
+    int getWriteError() noexcept { return write_error; }
+    void clearWriteError() noexcept { setWriteError(0); }
+
+    virtual size_t write(uint8_t) noexcept = 0;
+
+    size_t write(const char *str) noexcept
     {
-      return write_error;
-    }
-    void clearWriteError()
-    {
-      setWriteError(0);
+    	return (str == NULL) ? 0 : write((const uint8_t *)str, strlen(str));
     }
 
-    virtual size_t write(uint8_t) = 0;
-    size_t write(const char *str)
+    virtual size_t write(const uint8_t *buffer, size_t size) noexcept;
+
+    size_t write(const char *buffer, size_t size) noexcept
     {
-      if (str == NULL) {
-        return 0;
-      }
-      return write((const uint8_t *)str, strlen(str));
-    }
-    virtual size_t write(const uint8_t *buffer, size_t size);
-    size_t write(const char *buffer, size_t size)
-    {
-      return write((const uint8_t *)buffer, size);
+    	return write((const uint8_t *)buffer, size);
     }
 
-    size_t print(const __FlashStringHelper *);
-    size_t print(const String &);
-    size_t print(const char[]);
-    size_t print(char);
-    size_t print(unsigned char, int = DEC);
-    size_t print(int, int = DEC);
-    size_t print(unsigned int, int = DEC);
-    size_t print(long, int = DEC);
-    size_t print(unsigned long, int = DEC);
-    size_t print(double, int = 2);
-    size_t print(const Printable &);
+    size_t print(const char[]) noexcept;
+    size_t print(char) noexcept;
+    size_t print(unsigned char, int = DEC) noexcept;
+    size_t print(int, int = DEC) noexcept;
+    size_t print(unsigned int, int = DEC) noexcept;
+    size_t print(long, int = DEC) noexcept;
+    size_t print(unsigned long, int = DEC) noexcept;
+    size_t print(double, int = 2) noexcept;
 
-    size_t println(const __FlashStringHelper *);
-    size_t println(const String &s);
-    size_t println(const char[]);
-    size_t println(char);
-    size_t println(unsigned char, int = DEC);
-    size_t println(int, int = DEC);
-    size_t println(unsigned int, int = DEC);
-    size_t println(long, int = DEC);
-    size_t println(unsigned long, int = DEC);
-    size_t println(double, int = 2);
-    size_t println(const Printable &);
-    size_t println(void);
-#ifdef SUPPORT_LONGLONG
-    void println(int64_t, uint8_t = DEC);
-    void print(int64_t, uint8_t = DEC);
-    void println(uint64_t, uint8_t = DEC);
-    void print(uint64_t, uint8_t = DEC);
-#endif
+    size_t println(const char[]) noexcept;
+    size_t println(char) noexcept;
+    size_t println(unsigned char, int = DEC) noexcept;
+    size_t println(int, int = DEC) noexcept;
+    size_t println(unsigned int, int = DEC) noexcept;
+    size_t println(long, int = DEC) noexcept;
+    size_t println(unsigned long, int = DEC) noexcept;
+    size_t println(double, int = 2) noexcept;
+    size_t println(void) noexcept;
 };
 
 #endif

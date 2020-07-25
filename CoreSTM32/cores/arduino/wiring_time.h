@@ -34,7 +34,7 @@ extern "C" {
  * \return Number of milliseconds since the program started (uint32_t)
  */
 extern uint32_t millis(void) ;
-
+uint64_t millis64(void);
 /**
  * \brief Returns the number of microseconds since the Arduino board began running the current program.
  *
@@ -54,7 +54,7 @@ extern uint32_t micros(void) ;
  * \param ms the number of milliseconds to pause (uint32_t)
  */
 extern void coreDelay(uint32_t ms) ;
-extern void delay(uint32_t ms) ;
+extern void delay(uint32_t ms) noexcept;
 
 /**
  * \brief Pauses the program for the amount of time (in microseconds) specified as parameter.

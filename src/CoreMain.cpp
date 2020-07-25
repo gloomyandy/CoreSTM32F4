@@ -77,9 +77,12 @@ extern "C" [[noreturn]] void LEDTask(void *pvParameters) noexcept
     {
         pinMode(discoLights[i], OUTPUT);
         digitalWrite(PA_7, 0);
-        delay(500);
+        delay(250);
         digitalWrite(PA_7, 1);
-        delay(500);
+        delay(250
+        
+        
+        );
         pinMode(discoLights[i], INPUT);
         i = (i+1) % 6;
     }

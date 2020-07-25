@@ -21,8 +21,8 @@
 #include "Arduino.h"
 //extern void __libc_init_array(void);
 //extern void init(void);
-//extern void UrgentInit(void);
-//extern void AppMain();
+extern void UrgentInit(void);
+extern "C" void AppMain() noexcept;
 
 
 // Weak empty variant initialization function.
@@ -59,18 +59,18 @@ __attribute__((constructor(101))) void premain()
 int main(void)
 {
   initVariant();
-	//AppMain();				// note: app must set up the system tick interrupt, either within FreeRTOS or by calling SysTickInit
+	AppMain();				// note: app must set up the system tick interrupt, either within FreeRTOS or by calling SysTickInit
 
-  setup();
+  //setup();
 
   for (;;) {
 #if defined(CORE_CALLBACK)
     CoreCallback();
 #endif
-    loop();
-    if (serialEventRun) {
-      serialEventRun();
-    }
+    //loop();
+    //if (serialEventRun) {
+      //serialEventRun();
+    //}
   }
 
   return 0;

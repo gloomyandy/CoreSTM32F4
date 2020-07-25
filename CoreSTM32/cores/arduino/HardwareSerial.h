@@ -101,58 +101,58 @@ class HardwareSerial : public Stream {
     serial_t _serial;
 
   public:
-    HardwareSerial(uint32_t _rx, uint32_t _tx);
-    HardwareSerial(PinName _rx, PinName _tx);
-    HardwareSerial(void *peripheral);
-    void begin(unsigned long baud)
+    HardwareSerial(uint32_t _rx, uint32_t _tx) noexcept;
+    HardwareSerial(PinName _rx, PinName _tx) noexcept;
+    HardwareSerial(void *peripheral) noexcept;
+    void begin(unsigned long baud) noexcept
     {
       begin(baud, SERIAL_8N1);
     }
-    void begin(unsigned long, uint8_t);
+    void begin(unsigned long, uint8_t) noexcept;
     void end();
-    virtual int available(void);
-    virtual int peek(void);
-    virtual int read(void);
-    int availableForWrite(void);
-    virtual void flush(void);
-    virtual size_t write(uint8_t);
-    inline size_t write(unsigned long n)
+    virtual int available(void) noexcept;
+    virtual int peek(void) noexcept;
+    virtual int read(void) noexcept;
+    int availableForWrite(void) noexcept;
+    virtual void flush(void) noexcept;
+    virtual size_t write(uint8_t) noexcept;
+    inline size_t write(unsigned long n) noexcept
     {
       return write((uint8_t)n);
     }
-    inline size_t write(long n)
+    inline size_t write(long n) noexcept
     {
       return write((uint8_t)n);
     }
-    inline size_t write(unsigned int n)
+    inline size_t write(unsigned int n) noexcept
     {
       return write((uint8_t)n);
     }
-    inline size_t write(int n)
+    inline size_t write(int n) noexcept
     {
       return write((uint8_t)n);
     }
     using Print::write; // pull in write(str) and write(buf, size) from Print
-    operator bool()
+    operator bool() noexcept
     {
       return true;
     }
 
-    void setRx(uint32_t _rx);
-    void setTx(uint32_t _tx);
-    void setRx(PinName _rx);
-    void setTx(PinName _tx);
+    void setRx(uint32_t _rx) noexcept;
+    void setTx(uint32_t _tx) noexcept;
+    void setRx(PinName _rx) noexcept;
+    void setTx(PinName _tx) noexcept;
 
     friend class STM32LowPower;
 
     // Interrupt handlers
-    static void _rx_complete_irq(serial_t *obj);
-    static int _tx_complete_irq(serial_t *obj);
+    static void _rx_complete_irq(serial_t *obj) noexcept;
+    static int _tx_complete_irq(serial_t *obj) noexcept;
   private:
     uint8_t _config;
     unsigned long _baud;
-    void init(void);
-    void configForLowPower(void);
+    void init(void) noexcept;
+    void configForLowPower(void) noexcept;
 };
 
 extern HardwareSerial Serial1;

@@ -5,27 +5,27 @@ RRF_SRC_BASE  = $(REPRAPFIRMWARE_DIR)/src
 RRF_SRC_DIRS = FilamentMonitors GCodes GCodes/GCodeBuffer Heating 
 RRF_SRC_DIRS += Movement Movement/BedProbing Movement/Kinematics 
 RRF_SRC_DIRS += Storage Libraries/sha1
-RRF_SRC_DIRS += Heating/Sensors Fans ObjectModel Endstops Hardware Tools
+RRF_SRC_DIRS += Heating/Sensors Fans ObjectModel Endstops Hardware Hardware/SharedSpi Tools
 RRF_SRC_DIRS += Display Display/ST7920 GPIO
 
 #LPC RRF Addons
-RRF_SRC_DIRS += LPC LPC/MCP4461 LPC/FatFS
+RRF_SRC_DIRS += STM32 STM32/FatFS
 
 #networking support?
 ifeq ($(NETWORKING), true)
-	RRF_SRC_DIRS += Networking LPC/LPCNetworking LPC/LPCNetworking/RTOSPlusTCPEthernet
+	RRF_SRC_DIRS += Networking STM32/LPCNetworking STM32/STMNetworking/RTOSPlusTCPEthernet
 else ifeq ($(ESP8266WIFI), true) 
-	RRF_SRC_DIRS += Networking Networking/ESP8266WiFi LPC/LPCNetworking/ESP8266WiFi
+	RRF_SRC_DIRS += Networking Networking/ESP8266WiFi STM32/STMNetworking/ESP8266WiFi
 else ifeq ($(SBC), true)
 	RRF_SRC_DIRS += Linux
-	RRF_SRC_DIRS += LPC/NoNetwork
+	RRF_SRC_DIRS += STM32/NoNetwork
 else
-	RRF_SRC_DIRS += LPC/NoNetwork
+	RRF_SRC_DIRS += STM32/NoNetwork
 endif
 
 #TMC22XX support?
 ifeq ($(TMC22XX), true)
-	RRF_SRC_DIRS += LPC/Movement/StepperDrivers Movement/StepperDrivers
+	RRF_SRC_DIRS += STM32/Movement/StepperDrivers Movement/StepperDrivers
 endif
 
 #Find the c and cpp source files

@@ -16,7 +16,7 @@
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
+#if 0
 #ifndef Arduino_h
 #define Arduino_h
 
@@ -48,3 +48,6 @@ void yield(void);
 #include "pins_arduino.h"
 
 #endif // Arduino_h
+#endif
+#include "pins_arduino.h"
+#include "Core.h"

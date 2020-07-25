@@ -31,17 +31,14 @@ _Static_assert(LastPort <= 0x0F, "PortName must be less than 16");
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern const PinName digitalPin[];
-#define NoPin                       NC
 #define NOT_AN_INTERRUPT            NC // -1
-typedef PinName Pin;
 
 // Convert a digital pin number Dxx to a PinName PX_n
 // Note: Analog pin is also a digital pin.
 #define digitalPinToPinName(p)      ((PinName)(p))
 // Convert a PinName PX_n to a digital pin number
 //uint32_t pinNametoDigitalPin(PinName p);
-
+#define analogInputToPinName(p)     ((PinName)(p))
 // All pins could manage EXTI
 #define digitalPinToInterrupt(p)    (digitalPinIsValid(p) ? p : NOT_AN_INTERRUPT)
 

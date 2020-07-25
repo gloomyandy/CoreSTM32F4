@@ -22,14 +22,37 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+// Pin mode enumeration. Would ideally be a C++ scoped enum, but we need to use it from C library functions.
+enum PinMode
+{
+	PIN_MODE_NOT_CONFIGURED = -1,	// used in Platform class to record that the mode for a pin has not been set yet
+	INPUT = 0,						// pin is a digital input
+	INPUT_PULLUP,					// pin is a digital input with pullup enabled
+	INPUT_PULLDOWN,					// pin is a digital input with pulldown enabled
+	OUTPUT_LOW,						// pin is an output with initial state LOW
+	OUTPUT_HIGH,					// pin is an output with initial state HIGH
+	AIN,							// pin is an analog input, digital input buffer is disabled if possible
+	SPECIAL,						// pin is used for the special function defined for it in the variant.cpp file
+	OUTPUT_PWM_LOW,					// PWM output mode, initially low
+	OUTPUT_PWM_HIGH,				// PWM output mode, initially high
+	OUTPUT_LOW_OPEN_DRAIN,			// used in SX1509B expansion driver to put the pin in open drain output mode
+	OUTPUT_HIGH_OPEN_DRAIN,			// used in SX1509B expansion driver to put the pin in open drain output mode
+	OUTPUT_PWM_OPEN_DRAIN			// used in SX1509B expansion driver to put the pin in PWM output mode
+};
 
 /**
- * \brief Configures the specified pin to behave either as an input or an output.
+ * \brief Configures the specified pin to behave either as an input or an output. See the description of digital pins for details.
  *
- * \param dwPin The number of the pin whose mode you wish to set
- * \param dwMode Either INPUT, INPUT_PULLUP, INPUT_PULLDOWN or OUTPUT
+ * \param ulPin The number of the pin whose mode you wish to set
+ * \param ulMode Either INPUT or OUTPUT
+ * \param debounceCutoff Debounce cutoff frequency (only one can be set per PIO)
  */
-extern void pinMode(uint32_t dwPin, uint32_t dwMode) ;
+extern void pinModeDuet(uint32_t pin, enum PinMode dwMode, uint32_t debounceCutoff) noexcept;
+
+static inline void pinMode(uint32_t pin, enum PinMode dwMode) noexcept
+{
+	pinModeDuet(pin, dwMode, 0);
+}
 
 /**
  * \brief Write a HIGH or a LOW value to a digital pin.
@@ -57,6 +80,8 @@ extern int digitalRead(uint32_t ulPin) ;
  * \param ulPin The number of the digital pin you want to toggle (int)
  */
 extern void digitalToggle(uint32_t ulPin) ;
+
+extern void setPullup(uint32_t pin, bool en) ;
 
 #ifdef __cplusplus
 }

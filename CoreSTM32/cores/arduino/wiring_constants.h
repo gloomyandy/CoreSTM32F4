@@ -15,7 +15,43 @@
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
+#ifndef _WIRING_CONSTANTS_
+#define _WIRING_CONSTANTS_
+#include <stdbool.h>
+#include <stdint.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif // __cplusplus
+
+enum BitOrder {
+	LSBFIRST = 0,
+	MSBFIRST = 1
+};
+
+enum InterruptMode {
+	INTERRUPT_MODE_NONE = 0,
+	INTERRUPT_MODE_LOW,
+	INTERRUPT_MODE_HIGH,
+	INTERRUPT_MODE_CHANGE,
+	INTERRUPT_MODE_FALLING,
+	INTERRUPT_MODE_RISING
+};
+
+#define interrupts() __enable_irq()
+#define noInterrupts() __disable_irq()
+
+typedef bool boolean;
+
+#define LOW     0x0
+#define HIGH    0x1
+
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus
+
+#endif /* _WIRING_CONSTANTS_ */
+#if 0
 #ifndef _WIRING_CONSTANTS_
 #define _WIRING_CONSTANTS_
 
@@ -42,16 +78,6 @@ using std::max;
 
 #endif // __cplusplus
 
-/* Official Arduino */
-#define INPUT         0x0
-#define OUTPUT              0x1
-#define INPUT_PULLUP        0x2
-/* STM32 extension */
-#define INPUT_FLOATING      INPUT
-#define INPUT_PULLDOWN      0x3
-#define INPUT_ANALOG        0x4
-#define OUTPUT_OPEN_DRAIN   0x5
-
 #define PI 3.1415926535897932384626433832795
 #define HALF_PI 1.5707963267948966192313216916398
 #define TWO_PI 6.283185307179586476925286766559
@@ -76,7 +102,7 @@ enum BitOrder {
 #define DEFAULT 1
 #define EXTERNAL 0
 
-#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
+//#define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
 #define radians(deg) ((deg)*DEG_TO_RAD)
 #define degrees(rad) ((rad)*RAD_TO_DEG)
@@ -107,8 +133,9 @@ enum BitOrder {
 
 typedef unsigned int word;
 
-typedef bool boolean __attribute__((deprecated));
+typedef bool boolean;
 
 typedef uint8_t byte ;
 
 #endif /* _WIRING_CONSTANTS_ */
+#endif

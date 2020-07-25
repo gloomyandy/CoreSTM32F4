@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include "Arduino.h"
 #include "HardwareSerial.h"
-#if 0
+
 #if defined(HAL_UART_MODULE_ENABLED)
 #if defined(HAVE_HWSERIAL1) || defined(HAVE_HWSERIAL2) || defined(HAVE_HWSERIAL3) ||\
     defined(HAVE_HWSERIAL4) || defined(HAVE_HWSERIAL5) || defined(HAVE_HWSERIAL6) ||\
@@ -287,7 +287,7 @@ int HardwareSerial::_tx_complete_irq(serial_t *obj)
 
 // Public Methods //////////////////////////////////////////////////////////////
 
-void HardwareSerial::begin(unsigned long baud, byte config)
+void HardwareSerial::begin(unsigned long baud, uint8_t config)
 {
   uint32_t databits = 0;
   uint32_t stopbits = 0;
@@ -455,5 +455,5 @@ void HardwareSerial::setTx(PinName _tx)
 {
   _serial.pin_tx = _tx;
 }
-#endif
+
 #endif // HAL_UART_MODULE_ENABLED

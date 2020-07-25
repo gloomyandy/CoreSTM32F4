@@ -16,43 +16,19 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include <Core.h>
-#include <cstdlib>
-#include <cstdint>
+#ifndef ANALOGOUT_H
+#define ANALOGOUT_H
 
-#include "WMath.h"
+// Initialise this module
+extern void AnalogOutInit() noexcept;
 
-#if SAM3XA || SAME70
-// SAM3X and SAME70 have a true random number generator
-# include "trng/trng.h"
-#endif
+/*
+ * \brief Writes an analog value (PWM wave) to a pin.
+ *
+ * \param ulPin
+ * \param ulValue, will be constrained to be within 0.0 to 1.0 within this function
+ * \param freq (optional)
+ */
+extern void AnalogOut(Pin pin, float ulValue, PwmFrequency freq = 1000) noexcept;
 
-extern "C" uint32_t random32()
-{
-#if SAM3XA || SAME70
-	while (!(TRNG->TRNG_ISR & TRNG_ISR_DATRDY)) {}
-	return (uint32_t)TRNG->TRNG_ODATA;
-#else
-	static bool isInitialised = false;
-
-	if (!isInitialised)
-	{
-		srand(SysTick->VAL);
-		isInitialised = true;
-	}
-
-	return rand();
-#endif
-}
-
-extern int32_t random(int32_t howsmall, int32_t howbig)
-{
-	if (howsmall >= howbig)
-	{
-		return howsmall;
-	}
-
-	return random(howbig - howsmall) + howsmall;
-}
-
-// End
+#endif // ANALOGOUT_H

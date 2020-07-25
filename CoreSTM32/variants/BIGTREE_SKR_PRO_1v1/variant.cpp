@@ -33,7 +33,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#if 0
 // Pin number
 // This array allows to wrap Arduino pin number(Dx or x)
 // to STM32 PinName (PX_n)
@@ -189,7 +189,7 @@ const PinName digitalPin[] = {
   PI_7,  //D139 - 1:TIM8_CH3
 #endif
 };
-
+#endif
 #ifdef __cplusplus
 }
 #endif

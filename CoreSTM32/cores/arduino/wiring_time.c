@@ -28,6 +28,10 @@ uint32_t millis(void)
   return getCurrentMillis();
 }
 
+uint64_t millis64()
+{
+  return getCurrentMillis64();
+}
 // Interrupt-compatible version of micros
 uint32_t micros(void)
 {

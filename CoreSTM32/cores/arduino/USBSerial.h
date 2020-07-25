@@ -27,32 +27,33 @@
 // Serial over CDC
 class USBSerial : public Stream {
   public:
-    void begin(void);
-    void begin(uint32_t);
-    void begin(uint32_t, uint8_t);
-    void end(void);
+    void begin(void) noexcept;
+    void begin(uint32_t) noexcept;
+    void begin(uint32_t, uint8_t) noexcept;
+    void end(void) noexcept;
 
-    virtual int available(void);
-    virtual int availableForWrite(void);
-    virtual int peek(void);
-    virtual int read(void);
-    virtual size_t readBytes(char *buffer, size_t length);  // read chars from stream into buffer
-    virtual size_t readBytesUntil(char terminator, char *buffer, size_t length);  // as readBytes with terminator character
-    virtual void flush(void);
-    virtual size_t write(uint8_t);
-    virtual size_t write(const uint8_t *buffer, size_t size);
+    virtual int available(void) noexcept;
+    virtual int availableForWrite(void) noexcept;
+    virtual int peek(void) noexcept;
+    virtual int read(void) noexcept;
+    virtual size_t readBytes(char *buffer, size_t length) noexcept;  // read chars from stream into buffer
+    virtual size_t readBytesUntil(char terminator, char *buffer, size_t length) noexcept;  // as readBytes with terminator character
+    virtual void flush(void) noexcept;
+    virtual size_t write(uint8_t) noexcept;
+    virtual size_t write(const uint8_t *buffer, size_t size) noexcept;
     using Print::write; // pull in write(str) from Print
-    operator bool(void);
+    operator bool(void) noexcept;
+    bool IsConnected() noexcept;
 
     // These return the settings specified by the USB host for the
     // serial port. These aren't really used, but are offered here
     // in case a sketch wants to act on these settings.
-    uint32_t baud();
-    uint8_t stopbits();
-    uint8_t paritytype();
-    uint8_t numbits();
-    bool dtr();
-    bool rts();
+    uint32_t baud() noexcept;
+    uint8_t stopbits() noexcept;
+    uint8_t paritytype() noexcept;
+    uint8_t numbits() noexcept;
+    bool dtr() noexcept;
+    bool rts() noexcept;
     enum {
       ONE_STOP_BIT = 0,
       ONE_AND_HALF_STOP_BIT = 1,

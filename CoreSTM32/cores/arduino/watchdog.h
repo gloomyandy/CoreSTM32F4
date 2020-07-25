@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2011 Arduino.  All right reserved.
+  Copyright (c) 2014 Arduino.  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -16,43 +16,31 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include <Core.h>
-#include <cstdlib>
-#include <cstdint>
+#ifndef _WATCHDOG_
+#define _WATCHDOG_
 
-#include "WMath.h"
+#include <stdint.h>
 
-#if SAM3XA || SAME70
-// SAM3X and SAME70 have a true random number generator
-# include "trng/trng.h"
-#endif
+// Watchdog functions
 
-extern "C" uint32_t random32()
-{
-#if SAM3XA || SAME70
-	while (!(TRNG->TRNG_ISR & TRNG_ISR_DATRDY)) {}
-	return (uint32_t)TRNG->TRNG_ODATA;
-#else
-	static bool isInitialised = false;
+/*
+ * \brief Enable the watchdog with the specified timeout. Should only be called once.
+ *
+ * \param timeout in milliseconds.
+ */
+void watchdogEnable (uint32_t timeout) noexcept;
 
-	if (!isInitialised)
-	{
-		srand(SysTick->VAL);
-		isInitialised = true;
-	}
+/*
+ * \brief Disable the watchdog timer. Should only be called once.
+ *
+ */
+void watchdogDisable (void) noexcept;
 
-	return rand();
-#endif
-}
+/*
+ * \brief Reset the watchdog counter.
+ *
+ */
+void watchdogReset (void) noexcept;
 
-extern int32_t random(int32_t howsmall, int32_t howbig)
-{
-	if (howsmall >= howbig)
-	{
-		return howsmall;
-	}
+#endif /* _WATCHDOG_ */
 
-	return random(howbig - howsmall) + howsmall;
-}
-
-// End

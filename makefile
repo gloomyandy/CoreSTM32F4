@@ -1,10 +1,5 @@
 PROCESSOR = STM32F4
 
-#Enable when debugging on MBED to swap serial and USB 
-#and select direct ld script
-#MBED = true
-
-
 
 BUILD_DIR ?= ./build
 FREERTOS_DIR ?= ./FreeRTOS
@@ -18,9 +13,9 @@ BUILD ?= Debug
 #Enable only one
 #NETWORKING ?= true
 #ESP8266WIFI ?= true
-SBC ?= true
+#SBC ?= true
 
-TMC22XX ?= true
+#TMC22XX ?= true
 
 #Comment out to show compilation commands (verbose)
 V=@
@@ -45,11 +40,10 @@ MKDIR = mkdir -p
 include LPCCore.mk
 include FreeRTOS.mk
 include RRFLibraries.mk
-#include RepRapFirmware.mk
+include RepRapFirmware.mk
 
 ifeq ($(BUILD),Debug)
-	#DEBUG_FLAGS = -Og -g -DLPC_DEBUG
-	DEBUG_FLAGS = -Os -g -DLPC_DEBUG
+	DEBUG_FLAGS = -Os -g -DSTM32_DEBUG
         $(info - Build: Debug) 
 else
 	DEBUG_FLAGS = -Os
@@ -57,14 +51,9 @@ else
 endif
 	
 
-#select correct linker script
-ifeq ($(MBED), true)
-	#No bootloader for MBED
-	LINKER_SCRIPT_BASE = $(CORE)/variants/LPC/linker_scripts/gcc/LPC17xx_direct
-else 
-	#Linker script to avoid built in Bootloader
- 	LINKER_SCRIPT_BASE = $(CORE)/variants/BIGTREE_SKR_PRO_1v1/ldscript
-endif
+#Linker script to avoid built in Bootloader
+LINKER_SCRIPT_BASE = $(CORE)/variants/BIGTREE_SKR_PRO_1v1/ldscript
+
 
 
 #Path to the linker Script
@@ -73,21 +62,15 @@ $(info  - Linker Script used: $(LINKER_SCRIPT))
 
 
 #Flags common for Core in c and c++
-FLAGS  = -D__$(PROCESSOR)__ -D_XOPEN_SOURCE -DENABLE_UART3 -DSTM32F4 -DSTM32F407xx -DSTM32F40_41xxx -DSTM32F407_5ZX -DSTM32F4xx
+#FLAGS  = -D__$(PROCESSOR)__ -D_XOPEN_SOURCE -DENABLE_UART3 -DSTM32F4 -DSTM32F407xx -DSTM32F40_41xxx -DSTM32F407_5ZX -DSTM32F4xx
+FLAGS  = -D__$(PROCESSOR)__ -D_XOPEN_SOURCE -DSTM32F4 -DSTM32F407xx -DSTM32F40_41xxx -DSTM32F407_5ZX -DSTM32F4xx
 
-ifeq ($(MBED), true)
-        $(info  - Building for MBED)
-	    FLAGS += -D__MBED__
-        ifeq ($(ESP8266WIFI), true)
-            FLAGS += -DENABLE_UART3 -DENABLE_UART2 -DENABLE_UART1
-        endif
-endif
 
 #lpcopen Defines
 FLAGS += -DCORE_M4
 #RTOS + enable mods to RTOS+TCP for RRF
 FLAGS += -DRTOS -DFREERTOS_USED -DUSBCON -DUSBD_USE_CDC -DUSBD_VID=0x0483 -DTIM_IRQ_PRIO=13 -DUSB_PRODUCT=\"STM32F407ZG\" -DVECT_TAB_OFFSET=0x8000
-FLAGS += -DDEVICE_USBDEVICE=1 -DTARGET_STM32F4 -DARDUINO_ARCH_STM32 -DARDUINO_BIGTREE_SKR_PRO -DBOARD_NAME=\"BIGTREE_SKR_PRO\" -DHAL_UART_MODULE_ENABLED -DHAL_PCD_MODULE_ENABLED
+FLAGS += -DDEVICE_USBDEVICE=1 -DTARGET_STM32F4 -DARDUINO_ARCH_STM32 -DARDUINO_BIGTREE_SKR_PRO -DHAL_UART_MODULE_ENABLED -DHAL_PCD_MODULE_ENABLED
 FLAGS +=  -Wall -c -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -ffunction-sections -fdata-sections
 FLAGS += -nostdlib -Wdouble-promotion -fsingle-precision-constant -fstack-usage
 #FLAGS += -Wfloat-equal
@@ -147,11 +130,14 @@ $(BUILD_DIR)/libSTMCore.a: $(CORE_OBJS)
 $(BUILD_DIR)/libRRFLibraries.a: $(RRFLIBRARIES_OBJS)
 	$(V)$(AR) rcs $@ $(RRFLIBRARIES_OBJS)
 	@echo "\nBuilt RRF Libraries\n"
-	
-$(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/src/CoreMain.o $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLibraries.a
+
+#$(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/src/CoreMain.o $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLibraries.a $(RRFLIBC_OBJS)
+#	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nano.specs -Os -Wl,--warn-section-align -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-section-align -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/src/CoreMain.o -lSTMCore -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
+
+$(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLibraries.a $(RRFLIBC_OBJS) $(RRF_OBJS)
 	@echo "\nCreating $(OUTPUT_NAME).bin"
 	$(V)$(MKDIR) $(dir $@)
-	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nano.specs -Os -Wl,--warn-section-align -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-section-align -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/src/CoreMain.o -lSTMCore -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
+	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nano.specs -Os -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/$(CORE)/cores/arduino/syscalls.o $(RRFLIBC_OBJS) -lSTMCore $(RRF_OBJS) -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
 	$(V)$(OBJCOPY) --strip-unneeded -O binary $(BUILD_DIR)/$(OUTPUT_NAME).elf $(BUILD_DIR)/$(OUTPUT_NAME).bin
 	$(V)$(SIZE) $(BUILD_DIR)/$(OUTPUT_NAME).elf
 	-@./staticMemStats.sh $(BUILD_DIR)/$(OUTPUT_NAME).elf
@@ -213,6 +199,6 @@ distclean:
 	-rm -rf $(BUILD_DIR)/ 
 
 upload:
-	ST-LINK_CLI.exe -c SWD -P "$(BUILD_DIR)/firmware.bin" 0x8008000 -Rst -Run
+	ST-LINK_CLI.exe -c SWD -P "$(BUILD_DIR)/firmware.bin" 0x8008000 -ClrBP -NoPrompt -Rst -Run
 
 .PHONY: all firmware clean distclean $(BUILD_DIR)/$(OUTPUT_NAME).elf

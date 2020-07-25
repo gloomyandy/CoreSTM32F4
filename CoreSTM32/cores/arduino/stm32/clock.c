@@ -38,11 +38,12 @@
 #include "backup.h"
 #include "clock.h"
 #include "stm32yyxx_ll_cortex.h"
+#include "interrupt_stm32.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+static volatile uint64_t g_ms_ticks = 0;
 /**
   * @brief  Function called to read the current micro second
   * @param  None
@@ -69,8 +70,18 @@ uint32_t getCurrentMicros(void)
   */
 uint32_t getCurrentMillis(void)
 {
-  return HAL_GetTick();
+  return (uint32_t) g_ms_ticks;
 }
+
+uint64_t getCurrentMillis64(void)
+{
+	const irqflags_t flags = cpu_irq_save();	// save and disable interrupts
+	const uint64_t ret = g_ms_ticks;			// take a copy with interrupts disabled to guard against rollover while we read it
+	cpu_irq_restore(flags);
+	return ret;
+}
+
+
 
 void noOsSystickHandler()
 {
@@ -89,6 +100,10 @@ void SysTick_Handler(void)
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
   osSystickHandler();
+  const irqflags_t flags = cpu_irq_save();	// save and disable interrupts, because under RTOS the systick interrupt is low priority
+	g_ms_ticks++;
+	cpu_irq_restore(flags);
+
 }
 
 

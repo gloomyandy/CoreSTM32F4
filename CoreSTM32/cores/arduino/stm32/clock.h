@@ -59,6 +59,7 @@ typedef enum {
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 uint32_t getCurrentMillis(void);
+uint64_t getCurrentMillis64(void);
 uint32_t getCurrentMicros(void);
 
 void enableClock(sourceClock_t source);

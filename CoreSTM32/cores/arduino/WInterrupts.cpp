@@ -22,26 +22,26 @@
 #include "PinAF_STM32F1.h"
 #include "interrupt.h"
 
-void attachInterrupt(uint32_t pin, callback_function_t callback, uint32_t mode)
+bool attachInterrupt(uint32_t pin, StandardCallbackFunction callback, enum InterruptMode mode, CallbackParameter param) noexcept
 {
 #if !defined(HAL_EXTI_MODULE_DISABLED)
   uint32_t it_mode;
   PinName p = digitalPinToPinName(pin);
   GPIO_TypeDef *port = set_GPIO_Port_Clock(STM_PORT(p));
   if (!port) {
-    return;
+    return false;
   }
 
   switch (mode) {
-    case CHANGE :
+    case INTERRUPT_MODE_CHANGE :
       it_mode = GPIO_MODE_IT_RISING_FALLING;
       break;
-    case FALLING :
+    case INTERRUPT_MODE_FALLING :
     case LOW :
       it_mode = GPIO_MODE_IT_FALLING;
       break;
-    case RISING :
-    case HIGH :
+    case INTERRUPT_MODE_RISING :
+    case INTERRUPT_MODE_HIGH :
       it_mode = GPIO_MODE_IT_RISING;
       break;
     default:
@@ -53,28 +53,17 @@ void attachInterrupt(uint32_t pin, callback_function_t callback, uint32_t mode)
   pinF1_DisconnectDebug(p);
 #endif /* STM32F1xx */
 
-  stm32_interrupt_enable(port, STM_GPIO_PIN(p), callback, it_mode);
+  //stm32_interrupt_enable(port, STM_GPIO_PIN(p), callback, it_mode);
 #else
   UNUSED(pin);
   UNUSED(callback);
   UNUSED(mode);
 #endif
+return true;
 }
 
-void attachInterrupt(uint32_t pin, void (*callback)(void), uint32_t mode)
-{
-#if !defined(HAL_EXTI_MODULE_DISABLED)
-  callback_function_t _c = callback;
-  attachInterrupt(pin, _c, mode);
-#else
-  UNUSED(pin);
-  UNUSED(callback);
-  UNUSED(mode);
-#endif
 
-}
-
-void detachInterrupt(uint32_t pin)
+void detachInterrupt(uint32_t pin) noexcept
 {
 #if !defined(HAL_EXTI_MODULE_DISABLED)
   PinName p = digitalPinToPinName(pin);
