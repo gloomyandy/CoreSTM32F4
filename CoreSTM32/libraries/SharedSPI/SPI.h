@@ -2,8 +2,10 @@
 #define SPI_H
 
 #include "Core.h"
+#include "spi_com.h"
 
 constexpr uint16_t SPITimeoutMillis = 250;
+#if 0
 typedef enum
 {
     SPI_ERROR = -1,
@@ -14,6 +16,8 @@ typedef enum
     SPI_ERROR_MODE_FAULT,
     SPI_ERROR_OVERRUN_AND_MODE_FAULT
 } spi_status_t;
+#endif
+typedef spi_status_e spi_status_t;
 
 class SPI
 {

@@ -59,13 +59,13 @@ typedef uint32_t NvicPriority;
 
 #ifdef __cplusplus
 
-// SSP/SPI Channels
+// SSP/SPI Channels - yes I know the names do not match the numbers...
 enum SSPChannel : uint8_t
 {
     //Hardware SPI
-    SSP0 = 0,
-    SSP1,
+    SSP1 = 0,
     SSP2,
+    SSP3,
     //Software SPI
     SWSPI0,
 

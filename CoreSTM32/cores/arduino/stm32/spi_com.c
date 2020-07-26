@@ -198,13 +198,13 @@ void spi_init(spi_t *obj, uint32_t speed, spi_mode_e mode, uint8_t msb)
 
   handle->Init.Direction         = SPI_DIRECTION_2LINES;
 
-  if ((mode == SPI_MODE_0) || (mode == SPI_MODE_2)) {
+  if ((mode == CORE_SPI_MODE_0) || (mode == CORE_SPI_MODE_2)) {
     handle->Init.CLKPhase          = SPI_PHASE_1EDGE;
   } else {
     handle->Init.CLKPhase          = SPI_PHASE_2EDGE;
   }
 
-  if ((mode == SPI_MODE_0) || (mode == SPI_MODE_1)) {
+  if ((mode == CORE_SPI_MODE_0) || (mode == CORE_SPI_MODE_1)) {
     handle->Init.CLKPolarity       = SPI_POLARITY_LOW;
   } else {
     handle->Init.CLKPolarity       = SPI_POLARITY_HIGH;

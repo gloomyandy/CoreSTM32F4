@@ -4,14 +4,14 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "task.h"
+#include "spi_com.h"
 
 #define SPI_TIMEOUT       15000
-// Pin usage, SSP1 has a fixed set of pins SSP0 has two alternatives for each pin
-static constexpr Pin SSP1Pins[] = {};
-static Pin SSP0Pins[] = {};
 
-HardwareSPI HardwareSPI::SSP0((SPI_HandleTypeDef*)0, SSP0Pins);
-HardwareSPI HardwareSPI::SSP1((SPI_HandleTypeDef*)1, (Pin *)SSP1Pins);
+// Create SPI devices with default pins, these may get changed to alternates later
+HardwareSPI HardwareSPI::SSP1(PA_5, PA_6, PB_5, PA_4);
+HardwareSPI HardwareSPI::SSP2(PB_13, PB_14, PB_15, PB_12);
+HardwareSPI HardwareSPI::SSP3(PC_10, PC_11, PC_12, PA_15);
 
 //#define SSPI_DEBUG
 extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
@@ -71,43 +71,45 @@ void transferComplete(HardwareSPI *spiDevice) noexcept
     portYIELD_FROM_ISR(higherPriorityTaskWoken);
 }
 
-void HardwareSPI::configurePins(bool hardwareCS) noexcept
-{
-    // Attach the SSP module to the I/O pins, note that SSP0 can use pins either on port 0 or port 1
-
-}
-
 void HardwareSPI::initPins(Pin sck, Pin miso, Pin mosi, Pin cs) noexcept
 {
-   
-}
-
-void HardwareSPI::configureBaseDevice() noexcept
-{
-
-}
-
-void HardwareSPI::configureMode(uint32_t deviceMode, uint32_t bits, uint32_t clockMode, uint32_t bitRate) noexcept
-{
-
+    spi.pin_sclk = sck;
+    spi.pin_miso = miso;
+    spi.pin_mosi = mosi;
+    spi.pin_ssel = csPin = cs;   
 }
 
 void HardwareSPI::configureDevice(uint32_t deviceMode, uint32_t bits, uint32_t clockMode, uint32_t bitRate, bool hardwareCS) noexcept
 {
-
+    Pin cs = (hardwareCS ? csPin : NoPin);
+    if (!initComplete || bitRate != curBitRate || bits != curBits || clockMode != curClockMode )
+    {
+        spi.pin_ssel = cs;
+        spi_init(&spi, bitRate, (spi_mode_e)clockMode, 1);
+        initComplete = true;
+        curBitRate = bitRate;
+        curBits = bits;
+        curClockMode = clockMode;
+    }
 }
 
 
 //setup the master device.
 void HardwareSPI::configureDevice(uint32_t bits, uint32_t clockMode, uint32_t bitRate) noexcept
 {
-
+    configureDevice(SPI_MODE_MASTER, bits, clockMode, bitRate, false);
 }
 
 
-HardwareSPI::HardwareSPI(SPI_HandleTypeDef *sspDevice, Pin* spiPins) noexcept :needInit(true), pins(spiPins)
+HardwareSPI::HardwareSPI(Pin clk, Pin miso, Pin mosi, Pin cs) noexcept :initComplete(false)
 {
-    ssp = sspDevice;    
+    spi.pin_sclk = clk;
+    spi.pin_miso = miso;
+    spi.pin_mosi = mosi;
+    spi.pin_ssel = csPin = cs;
+    curBitRate = 0xffffffff;
+    curClockMode = 0xffffffff;
+    curBits = 0xffffffff;  
 }
 
 void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept
@@ -117,6 +119,19 @@ void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t
 
 spi_status_t HardwareSPI::transceivePacket(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept
 {
+    spi_status_e stmRet = SPI_OK;
+    if (rx_data == nullptr)
+        stmRet = spi_send(&spi, (uint8_t *)tx_data, len, SPITimeoutMillis);
+    else if (tx_data == nullptr)
+        stmRet = spi_transfer(&spi, rx_data, rx_data, len, SPITimeoutMillis);
+    else
+        stmRet = spi_transfer(&spi,  (uint8_t *)tx_data, rx_data, len, SPITimeoutMillis);
+
+    if (stmRet == SPI_OK)
+        return SPI_OK;
+    else
+        return SPI_ERROR;
+#if 0
     waitingTask = xTaskGetCurrentTaskHandle();
     startTransfer(tx_data, rx_data, len, transferComplete);
     spi_status_t ret = SPI_OK;
@@ -126,4 +141,5 @@ spi_status_t HardwareSPI::transceivePacket(const uint8_t *tx_data, uint8_t *rx_d
         ret = SPI_ERROR_TIMEOUT;
     }
     return ret;
+#endif
 }

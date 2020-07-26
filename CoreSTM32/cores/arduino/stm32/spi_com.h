@@ -82,10 +82,10 @@ typedef struct spi_s spi_t;
 //SPI_MODE3             1                         1
 //enum definitions coming from SPI.h of SAM
 typedef enum {
-  SPI_MODE_0 = 0x00,
-  SPI_MODE_1 = 0x01,
-  SPI_MODE_2 = 0x02,
-  SPI_MODE_3 = 0x03
+  CORE_SPI_MODE_0 = 0x00,
+  CORE_SPI_MODE_1 = 0x01,
+  CORE_SPI_MODE_2 = 0x02,
+  CORE_SPI_MODE_3 = 0x03
 } spi_mode_e;
 
 ///@brief SPI errors
