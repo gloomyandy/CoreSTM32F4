@@ -7,8 +7,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "spi_com.h"
-extern "C" void SSP0_IRQHandler(void) noexcept;
-extern "C" void SSP1_IRQHandler(void) noexcept;
+extern "C" void DMA2_Stream2_IRQHandler(void) noexcept;
+extern "C" void DMA2_Stream3_IRQHandler(void) noexcept;
 
 class HardwareSPI;
 typedef void (*SPICallbackFunction)(HardwareSPI *spiDevice) noexcept;
@@ -29,6 +29,8 @@ public:
 
 private:
     spi_t spi;
+    DMA_HandleTypeDef dmaRx;
+    DMA_HandleTypeDef dmaTx;
     Pin csPin;
     uint32_t curBitRate;
     uint32_t curBits;
@@ -37,9 +39,14 @@ private:
     SPICallbackFunction callback;
     TaskHandle_t waitingTask;
 
+    void initDmaStream(DMA_HandleTypeDef& hdma, DMA_Stream_TypeDef* inst, uint32_t chan, uint32_t dir, uint32_t minc) noexcept;
+    void initDma() noexcept;
+
+    friend void DMA2_Stream2_IRQHandler() noexcept;
+    friend void DMA2_Stream3_IRQHandler() noexcept;
     friend void transferComplete(HardwareSPI *spiDevice) noexcept;
-    friend void SSP0_IRQHandler(void) noexcept;
-    friend void SSP1_IRQHandler(void) noexcept;
+    friend void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi);
+    friend void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi);
 };
 
 #endif
