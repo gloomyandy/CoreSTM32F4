@@ -126,12 +126,13 @@ uint32_t spi_getClkFreq(spi_t *obj)
 /**
   * @brief  SPI initialization function
   * @param  obj : pointer to spi_t structure
+  * @param spimode: master/slave mode
   * @param  speed : spi output speed
   * @param  mode : one of the spi modes
   * @param  msb : set to 1 in msb first
   * @retval None
   */
-void spi_init(spi_t *obj, uint32_t speed, spi_mode_e mode, uint8_t msb)
+void spi_init(spi_t *obj, uint32_t spimode, uint32_t speed, spi_mode_e mode, uint8_t msb)
 {
   if (obj == NULL) {
     return;
@@ -173,7 +174,7 @@ void spi_init(spi_t *obj, uint32_t speed, spi_mode_e mode, uint8_t msb)
 
   /* Fill default value */
   handle->Instance               = obj->spi;
-  handle->Init.Mode              = SPI_MODE_MASTER;
+  handle->Init.Mode              = spimode;
 
   spi_freq = spi_getClkFreqInst(obj->spi);
   if (speed >= (spi_freq / SPI_SPEED_CLOCK_DIV2_MHZ)) {

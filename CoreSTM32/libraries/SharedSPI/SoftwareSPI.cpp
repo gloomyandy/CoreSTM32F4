@@ -16,11 +16,12 @@ bool SoftwareSPI::waitForTxEmpty() noexcept
 }
 
 
-void SoftwareSPI::initPins(Pin sck_pin, Pin miso_pin, Pin mosi_pin, Pin cs)
+void SoftwareSPI::initPins(Pin clk, Pin miso, Pin mosi, Pin cs, DMA_Stream_TypeDef* rxStream, uint32_t rxChan, IRQn_Type rxIrq,
+                            DMA_Stream_TypeDef* txStream, uint32_t txChan, IRQn_Type txIrq) noexcept
 {
-    sck = sck_pin;
-    miso = miso_pin;
-    mosi = mosi_pin;
+    this->sck = clk;
+    this->miso = miso;
+    this->mosi = mosi;
 }
 
 //setup the master device.

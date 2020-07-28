@@ -25,7 +25,8 @@ public:
     virtual void configureDevice(uint32_t bits, uint32_t clockMode, uint32_t bitRate) noexcept;
     virtual spi_status_t transceivePacket(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept;    
     virtual bool waitForTxEmpty() noexcept;
-    virtual void initPins(Pin sck, Pin miso, Pin mosi, Pin cs = NoPin) noexcept;
+    virtual void initPins(Pin clk, Pin miso, Pin mosi, Pin cs = NoPin, DMA_Stream_TypeDef* rxStream = nullptr, uint32_t rxChan = 0, IRQn_Type rxIrq = DMA1_Stream0_IRQn,
+                            DMA_Stream_TypeDef* txStream = nullptr, uint32_t txChan = 0, IRQn_Type txIrq = DMA1_Stream0_IRQn) noexcept;
     static SPI *getSSPDevice(SSPChannel channel) noexcept;
 };
 

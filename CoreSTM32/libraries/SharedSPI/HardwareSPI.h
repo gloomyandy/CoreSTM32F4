@@ -9,18 +9,21 @@
 #include "spi_com.h"
 extern "C" void DMA2_Stream2_IRQHandler(void) noexcept;
 extern "C" void DMA2_Stream3_IRQHandler(void) noexcept;
+extern "C" void DMA1_Stream3_IRQHandler(void) noexcept;
+extern "C" void DMA1_Stream4_IRQHandler(void) noexcept;
 
 class HardwareSPI;
 typedef void (*SPICallbackFunction)(HardwareSPI *spiDevice) noexcept;
 class HardwareSPI: public SPI
 {
 public:
-    HardwareSPI(Pin clk, Pin miso, Pin mosi, Pin cs) noexcept;
+    HardwareSPI() noexcept;
     spi_status_t transceivePacket(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept;
     bool waitForTxEmpty() noexcept;
     void configureDevice(uint32_t bits, uint32_t clockMode, uint32_t bitRate) noexcept; // Master mode
     void configureDevice(uint32_t deviceMode, uint32_t bits, uint32_t clockMode, uint32_t bitRate, bool hardwareCS) noexcept;
-    void initPins(Pin sck, Pin miso, Pin mosi, Pin cs = NoPin) noexcept;
+    void initPins(Pin clk, Pin miso, Pin mosi, Pin cs = NoPin, DMA_Stream_TypeDef* rxStream = nullptr, uint32_t rxChan = 0, IRQn_Type rxIrq = DMA1_Stream0_IRQn,
+                            DMA_Stream_TypeDef* txStream = nullptr, uint32_t txChan = 0, IRQn_Type txIrq = DMA1_Stream0_IRQn) noexcept;
     void disable() noexcept;
     void startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept;
     static HardwareSPI SSP1;
@@ -39,11 +42,12 @@ private:
     SPICallbackFunction callback;
     TaskHandle_t waitingTask;
 
-    void initDmaStream(DMA_HandleTypeDef& hdma, DMA_Stream_TypeDef* inst, uint32_t chan, uint32_t dir, uint32_t minc) noexcept;
-    void initDma() noexcept;
+    void initDmaStream(DMA_HandleTypeDef& hdma, DMA_Stream_TypeDef *inst, uint32_t chan, IRQn_Type irq, uint32_t dir, uint32_t minc) noexcept;
 
     friend void DMA2_Stream2_IRQHandler() noexcept;
     friend void DMA2_Stream3_IRQHandler() noexcept;
+    friend void DMA1_Stream3_IRQHandler() noexcept;
+    friend void DMA1_Stream4_IRQHandler() noexcept;
     friend void transferComplete(HardwareSPI *spiDevice) noexcept;
     friend void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi);
     friend void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi);
