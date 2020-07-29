@@ -44,7 +44,8 @@
 /*As we can have only one interrupt/pin id, don't need to get the port info*/
 typedef struct {
   IRQn_Type irqnb;
-  std::function<void(void)> callback;
+  StandardCallbackFunction callback;
+  CallbackParameter param;
 } gpio_irq_conf_str;
 
 /* Private_Defines */
@@ -106,7 +107,8 @@ static uint8_t get_pin_id(uint16_t pin)
 
   return id;
 }
-void stm32_interrupt_enable(GPIO_TypeDef *port, uint16_t pin, callback_function_t callback, uint32_t mode)
+
+void stm32_interrupt_enable(GPIO_TypeDef *port, uint16_t pin, StandardCallbackFunction callback, uint32_t mode, CallbackParameter param)
 {
   GPIO_InitTypeDef GPIO_InitStruct;
   uint8_t id = get_pin_id(pin);
@@ -163,12 +165,14 @@ void stm32_interrupt_enable(GPIO_TypeDef *port, uint16_t pin, callback_function_
   HAL_GPIO_Init(port, &GPIO_InitStruct);
 
   gpio_irq_conf[id].callback = callback;
+  gpio_irq_conf[id].param = param;
 
   // Enable and set EXTI Interrupt
   HAL_NVIC_SetPriority(gpio_irq_conf[id].irqnb, EXTI_IRQ_PRIO, EXTI_IRQ_SUBPRIO);
   HAL_NVIC_EnableIRQ(gpio_irq_conf[id].irqnb);
 }
 
+#if 0
 /**
   * @brief  This function enable the interruption on the selected port/pin
   * @param  port : one of the gpio port
@@ -183,6 +187,7 @@ void stm32_interrupt_enable(GPIO_TypeDef *port, uint16_t pin, void (*callback)(v
   stm32_interrupt_enable(port, pin, _c, mode);
 
 }
+#endif
 
 /**
   * @brief  This function disable the interruption on the selected port/pin
@@ -215,7 +220,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   uint8_t irq_id = get_pin_id(GPIO_Pin);
 
   if (gpio_irq_conf[irq_id].callback != NULL) {
-    gpio_irq_conf[irq_id].callback();
+    gpio_irq_conf[irq_id].callback(gpio_irq_conf[irq_id].param);
   }
 }
 

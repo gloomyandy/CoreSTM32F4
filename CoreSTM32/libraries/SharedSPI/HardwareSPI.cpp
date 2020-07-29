@@ -21,15 +21,37 @@ static inline void flushTxFifo(SPI_HandleTypeDef *sspDevice) noexcept
 
 }
 
-static inline void flushRxFifo(SPI_HandleTypeDef *sspDevice) noexcept
+static inline void flushRxFifo(SPI_HandleTypeDef *hspi) noexcept
 {
+    uint8_t dummy;
+    int cnt = 0;
+    while (__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_RXNE))
+    {
+        /* read the received data */
+        dummy = *(__IO uint8_t *)&hspi->Instance->DR;
+        cnt++;
+    }
+    //if (cnt > 0)
+        //debugPrintf("Flushed cnt %d\n", cnt);
+
 }
 
+void HardwareSPI::flushRx() noexcept
+{
+    flushRxFifo(&spi.handle);
+}
 
 // Disable the device and flush any data from the fifos
 void HardwareSPI::disable() noexcept
 {
-
+    debugPrintf("spi disable called\n");
+    if (initComplete)
+    {
+        HAL_SPI_DMAStop(&(spi.handle));
+        flushRxFifo(&spi.handle);
+        spi_deinit(&spi);
+        initComplete = false;
+    }
 }
 
 // Wait for transmitter empty returning true if timed out
@@ -136,6 +158,11 @@ void HardwareSPI::configureDevice(uint32_t deviceMode, uint32_t bits, uint32_t c
     Pin cs = (hardwareCS ? csPin : NoPin);
     if (!initComplete || bitRate != curBitRate || bits != curBits || clockMode != curClockMode )
     {
+        if (initComplete)
+        {
+            HAL_SPI_DMAStop(&(spi.handle));
+            spi_deinit(&spi);
+        }
         spi.pin_ssel = cs;
         spi_init(&spi, deviceMode, bitRate, (spi_mode_e)clockMode, 1);
         initComplete = true;
@@ -157,6 +184,31 @@ HardwareSPI::HardwareSPI() noexcept :initComplete(false)
     curBitRate = 0xffffffff;
     curClockMode = 0xffffffff;
     curBits = 0xffffffff;
+}
+
+void HardwareSPI::checkComplete() noexcept
+{
+    HAL_SPI_StateTypeDef state = HAL_SPI_GetState(&(spi.handle));
+    if (state != HAL_SPI_STATE_READY)
+    {
+        debugPrintf("SPI not ready %x\n", state);
+    }
+    HAL_DMA_StateTypeDef dmaState = HAL_DMA_GetState(spi.handle.hdmarx);
+    if (dmaState != HAL_DMA_STATE_READY)
+    {
+        debugPrintf("RX DMA not ready %x\n", dmaState);
+    }
+    dmaState = HAL_DMA_GetState(spi.handle.hdmatx);
+    if (dmaState != HAL_DMA_STATE_READY)
+    {
+        debugPrintf("TX DMA not ready %x\n", dmaState);
+    }
+    uint32_t err = HAL_DMA_GetError(spi.handle.hdmarx);
+    if (err != 0)
+        debugPrintf("rx dma error %d\n", err);
+    err = HAL_DMA_GetError(spi.handle.hdmatx);
+    if (err != 0)
+        debugPrintf("tx dma error %d\n", err);
 }
 
 void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept

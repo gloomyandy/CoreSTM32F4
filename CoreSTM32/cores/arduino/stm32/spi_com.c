@@ -167,7 +167,7 @@ void spi_init(spi_t *obj, uint32_t spimode, uint32_t speed, spi_mode_e mode, uin
 
   // Configure the SPI pins
   if (obj->pin_ssel != NC) {
-    handle->Init.NSS = SPI_NSS_HARD_OUTPUT;
+    handle->Init.NSS = (spimode == SPI_MODE_SLAVE ? SPI_NSS_HARD_INPUT : SPI_NSS_HARD_OUTPUT);
   } else {
     handle->Init.NSS = SPI_NSS_SOFT;
   }
@@ -236,8 +236,8 @@ void spi_init(spi_t *obj, uint32_t spimode, uint32_t speed, spi_mode_e mode, uin
    * According the STM32 Datasheet for SPI peripheral we need to PULLDOWN
    * or PULLUP the SCK pin according the polarity used.
    */
-  pull = (handle->Init.CLKPolarity == SPI_POLARITY_LOW) ? GPIO_PULLDOWN : GPIO_PULLUP;
-  pin_PullConfig(get_GPIO_Port(STM_PORT(obj->pin_sclk)), STM_LL_GPIO_PIN(obj->pin_sclk), pull);
+  //pull = (handle->Init.CLKPolarity == SPI_POLARITY_LOW) ? GPIO_PULLDOWN : GPIO_PULLUP;
+  //pin_PullConfig(get_GPIO_Port(STM_PORT(obj->pin_sclk)), STM_LL_GPIO_PIN(obj->pin_sclk), pull);
   pinmap_pinout(obj->pin_ssel, PinMap_SPI_SSEL);
 
 #if defined SPI1_BASE

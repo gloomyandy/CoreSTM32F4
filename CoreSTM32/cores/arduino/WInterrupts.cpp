@@ -53,7 +53,7 @@ bool attachInterrupt(uint32_t pin, StandardCallbackFunction callback, enum Inter
   pinF1_DisconnectDebug(p);
 #endif /* STM32F1xx */
 
-  //stm32_interrupt_enable(port, STM_GPIO_PIN(p), callback, it_mode);
+  stm32_interrupt_enable(port, STM_GPIO_PIN(p), callback, it_mode, param);
 #else
   UNUSED(pin);
   UNUSED(callback);
