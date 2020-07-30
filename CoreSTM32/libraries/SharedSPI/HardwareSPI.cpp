@@ -213,6 +213,9 @@ void HardwareSPI::checkComplete() noexcept
 
 void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept
 {
+    // FIXME using DMA for a small number of bytes is probably a very bad idea, there is a lot of setup
+    // consider turning off meminc when rx_data or tx_data is null so we don't need to memset buffers to 0xff for the sd card.
+    // consider setting dms burst size to 4 for WiFi and SBC transfers
     HAL_SPI_StateTypeDef state = HAL_SPI_GetState(&(spi.handle));
     if (state != HAL_SPI_STATE_READY)
     {

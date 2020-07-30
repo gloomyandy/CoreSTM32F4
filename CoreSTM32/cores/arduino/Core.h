@@ -120,46 +120,8 @@ enum ETCChannel : int8_t
 #endif
 };
 
-// The analog input module uses the scheduler in the SAM processor to convert a number of channels.
-// Usage:
-// 1. Enable the channels you need by making calls to AnalogEnableChannel.
-// 2. If desired, call AnalogSetCallback to set a callback for when conversion is complete.
-// 3. Call AnalogStartConversion. This may be done e.g. in a tick interrupt if regular conversions are wanted.
-// 4. Either use the callback to determine when conversion is complete, or call AnalogCheckReady to poll the status.
-// 5. Call AnalogReadChannel to read the most recent converted result for each channel of interest.
-
-enum AnalogChannelNumber : int8_t
-{
-  NO_ADC=-1,
-  ADCC0=0,
-  ADCC1,
-  ADCC2,
-  ADCC3,
-  ADCC4,
-  ADCC5,
-  ADCC6,
-  ADCC7,
-  ADCC8,
-  ADCC9,
-  ADCC10,
-  ADCC11,
-  ADCC12,
-  ADCC13,
-  ADCC14,
-  ADCC15,
-  ADCC16,
-  ADCC17,
-  ADCC18,
-  ADCC19,
-  ADCC20,
-  ADCC21,
-  ADCC22,
-  ADCC23,
-  ADCC24,
-  DA0,
-  DA1
-};
-
+typedef PinName AnalogChannelNumber;
+constexpr AnalogChannelNumber NO_ADC = (AnalogChannelNumber)0xffffffff;
 // Pin Attributes to be OR-ed
 constexpr uint8_t PIN_ATTR_NONE = 0;
 constexpr uint8_t PIN_ATTR_COMBO = 1 << 0;

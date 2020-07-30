@@ -26,7 +26,8 @@
 // Module initialisation
 void AnalogInInit()
 {
-
+// FIXME We should switch to doing continuous conversions into a memory buffer (using DMA?) and simply read the results when we need them
+// at the moment we set things up on each read which is pretty bad.
 }
 
 // Enable or disable a channel. Use AnalogCheckReady to make sure the ADC is ready before calling this.
