@@ -88,65 +88,84 @@ bool ConfigurableUART::Configure(Pin rx, Pin tx) noexcept
 {
     //Find the UART based on the confgured Pins
 
-    uartPin_t *txEntry = nullptr;
-    uartPin_t *rxEntry = nullptr;
-    
-    for(uint8_t i=0; i< ARRAY_SIZE(uartPins); i++)
+    void* rxDev = pinmap_peripheral(rx, PinMap_UART_RX);
+    void* txDev = pinmap_peripheral(tx, PinMap_UART_TX);
+
+    if (rxDev != nullptr && (rxDev == txDev))
     {
-        uartPin_t *nextExtry = (uartPin_t *)&uartPins[i];
-        if(nextExtry->upin == rx && nextExtry->dir == RX)
-        {
-            //found RX Entry
-            rxEntry = nextExtry;
-        }
+#if defined(HAVE_HWSERIAL1)
+        if (rxDev == USART1)
+            serialPort = &Serial1;
+#endif
+#if defined(HAVE_HWSERIAL2)
+        if (rxDev == USART2)
+            serialPort = &Serial2;
+#endif
+#if defined(HAVE_HWSERIAL3)
+        if (rxDev == USART3)
+            serialPort = &Serial3;
+#endif
+#if defined(HAVE_HWSERIAL4)
+#if defined(USART4)
+        if (rxDev == USART4)
+            serialPort = &Serial4;
+#else
+        if (rxDev UART4)
+            serialPort = &Serial4;
+#endif
+#endif
+#if defined(HAVE_HWSERIAL5)
+#if defined(USART5)
+        if (rxDev == USART5)
+            serialPort = &Serial5;
+#else
+        if (rxDev == UART5)
+            serialPort = &Serial5;
+#endif
+#endif
+#if defined(HAVE_HWSERIAL6)
+        if (rxDev == USART6)
+            serialPort = &Serial6;
+#endif
+#if defined(HAVE_HWSERIAL7)
+#if defined(USART7)
+        if (rxDev == USART7)
+            serialPort = &Serial7;
+#else
+        if (rxDev == UART7)
+            serialPort = &Serial7;
+#endif
+#endif
+#if defined(HAVE_HWSERIAL8)
+#if defined(USART8)
+        if (rxDev == USART8)
+            serialPort = &Serial8;
+#else
+        if (rxDev == UART8)
+            serialPort = &Serial8;
+#endif
+#endif
+#if defined(HAVE_HWSERIAL9)
+        if (rxDev == USART9)
+            serialPort = &Serial9;
+#endif
+#if defined(HAVE_HWSERIAL10)
+        if (rxDev == USART11)
+            serialPort = &Serial11;
+#endif
+#if defined(HAVE_HWSERIALLP1)
+        if (rxDev == USART12)
+            serialPort = &Serial12;
+#endif
 
-        if(nextExtry->upin == tx && nextExtry->dir == TX)
+        if (serialPort != nullptr)
         {
-            //found TX Entry
-            txEntry = nextExtry;
+            serialPort->setRx(rx);
+            serialPort->setTx(tx);
+            return true;
         }
-
-        if(txEntry && rxEntry) break;
     }
-    
-    if(txEntry && rxEntry && txEntry->uartNumber == rxEntry->uartNumber)
-    {
-        //we have 2 pins that are defined as a rx and tx and are both from the same UART number
-
-        switch (txEntry->uartNumber)
-        {
-            case 0:
-                serialPort = &Serial1;
-                break;
-#if defined(ENABLE_UART2)
-            case 1:
-                serialPort = &Serial2;
-                break;
-#endif
-#if defined(ENABLE_UART3)
-            case 2:
-                serialPort = &Serial3;
-                break;
-#endif
-#if defined(ENABLE_UART4)
-            case 3:
-                serialPort = &Serial4;
-                break;
-#endif
-            default:
-                return false;
-        }
-#if 0
-    // FIXME need to configure this                
-        //Configure the Pin Functions to UART
-        GPIO_PinFunction(txEntry->upin, txEntry->pinselFunction);
-        GPIO_PinFunction(rxEntry->upin, rxEntry->pinselFunction);
-#endif        
-        return true; // success
-    }
-    
-    return false;
-    
+    return false;    
 }
 
 void ConfigurableUART::begin(uint32_t baud) noexcept
