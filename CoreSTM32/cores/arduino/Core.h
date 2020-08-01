@@ -120,7 +120,7 @@ enum ETCChannel : int8_t
 #endif
 };
 
-typedef PinName AnalogChannelNumber;
+typedef uint32_t AnalogChannelNumber;
 constexpr AnalogChannelNumber NO_ADC = (AnalogChannelNumber)0xffffffff;
 // Pin Attributes to be OR-ed
 constexpr uint8_t PIN_ATTR_NONE = 0;

@@ -35,6 +35,7 @@
   *
   ******************************************************************************
   */
+
 #include "stm32_def.h"
 #include "analog.h"
 #include "HardwareTimer.h"
@@ -45,6 +46,8 @@
 extern "C" {
 #endif
 
+// ADC functionality replaced with RRF by AnalogIn
+#undef HAL_ADC_MODULE_ENABLED
 
 /* Private_Variables */
 #if defined(HAL_ADC_MODULE_ENABLED) || defined(HAL_DAC_MODULE_ENABLED)
