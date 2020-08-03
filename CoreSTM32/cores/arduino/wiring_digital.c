@@ -73,11 +73,19 @@ void pinModeDuet(uint32_t pin, enum PinMode ulMode, uint32_t debounceCutoff) noe
             break;
             
         case OUTPUT_PWM_LOW:
-            //ConfigurePinForPWM(pin, false);
+            if (pwm_start(pin, 1000, 0))
+            {
+                if (is_pin_configured(pin, g_anOutputPinConfigured) == false) 
+                  set_pin_configured(pin, g_anOutputPinConfigured);
+            }
             break;
             
         case OUTPUT_PWM_HIGH:
-            //ConfigurePinForPWM(pin, true);
+            if (pwm_start(pin, 1000, PWM_MAX_DUTY_CYCLE))
+            {
+                if (is_pin_configured(pin, g_anOutputPinConfigured) == false) 
+                  set_pin_configured(pin, g_anOutputPinConfigured);
+            }
             break;
 
         case AIN:
