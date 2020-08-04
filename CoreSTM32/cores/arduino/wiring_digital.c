@@ -110,21 +110,25 @@ void pinModeDuet(uint32_t pin, enum PinMode ulMode, uint32_t debounceCutoff) noe
 
 void digitalWrite(uint32_t ulPin, uint32_t ulVal)
 {
+  if (ulPin == NC) return;
   digitalWriteFast(digitalPinToPinName(ulPin), ulVal);
 }
 
 int digitalRead(uint32_t ulPin)
 {
+  if (ulPin == NC) return 0;
   return digitalReadFast(digitalPinToPinName(ulPin));
 }
 
 void digitalToggle(uint32_t ulPin)
 {
+  if (ulPin == NC) return;
   digitalToggleFast(digitalPinToPinName(ulPin));
 }
 
 void setPullup(uint32_t pin, bool en)
 {
+  if (pin == NC) return;
   if (en)
     pin_function(pin, STM_PIN_DATA(STM_MODE_INPUT, GPIO_PULLUP, 0));
   else
