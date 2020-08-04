@@ -1151,7 +1151,8 @@ uint32_t HAL_DMA_GetError(DMA_HandleTypeDef *hdma)
 static void DMA_SetConfig(DMA_HandleTypeDef *hdma, uint32_t SrcAddress, uint32_t DstAddress, uint32_t DataLength)
 {
   /* Clear DBM bit */
-  hdma->Instance->CR &= (uint32_t)(~DMA_SxCR_DBM);
+  hdma->Instance->CR &= (uint32_t)(~(DMA_SxCR_DBM|DMA_SxCR_DIR));
+  hdma->Instance->CR |= hdma->Init.Direction;
 
   /* Configure DMA Stream data length */
   hdma->Instance->NDTR = DataLength;
