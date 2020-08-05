@@ -12,10 +12,10 @@ BUILD ?= Debug
 
 #Enable only one
 #NETWORKING ?= true
-#ESP8266WIFI ?= true
+ESP8266WIFI ?= true
 #SBC ?= true
 
-#TMC22XX ?= true
+TMC22XX ?= true
 
 #Comment out to show compilation commands (verbose)
 V=@
@@ -64,7 +64,8 @@ $(info  - Linker Script used: $(LINKER_SCRIPT))
 #Flags common for Core in c and c++
 #FLAGS  = -D__$(PROCESSOR)__ -D_XOPEN_SOURCE -DENABLE_UART3 -DSTM32F4 -DSTM32F407xx -DSTM32F40_41xxx -DSTM32F407_5ZX -DSTM32F4xx
 FLAGS  = -D__$(PROCESSOR)__ -D_XOPEN_SOURCE -DSTM32F4 -DSTM32F407xx -DSTM32F40_41xxx -DSTM32F407_5ZX -DSTM32F4xx
-
+# UART configuration
+FLAGS  += -DHAVE_HWSERIAL1 -DHAVE_HWSERIAL3 -DHAVE_HWSERIAL6
 
 #lpcopen Defines
 FLAGS += -DCORE_M4
@@ -137,7 +138,7 @@ $(BUILD_DIR)/libRRFLibraries.a: $(RRFLIBRARIES_OBJS)
 $(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLibraries.a $(RRFLIBC_OBJS) $(RRF_OBJS)
 	@echo "\nCreating $(OUTPUT_NAME).bin"
 	$(V)$(MKDIR) $(dir $@)
-	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nano.specs -Os -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/$(CORE)/cores/arduino/syscalls.o $(RRFLIBC_OBJS) -lSTMCore $(RRF_OBJS) -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
+	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nosys.specs -Xlinker -z -Xlinker muldefs -Os -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/$(CORE)/cores/arduino/syscalls.o $(RRFLIBC_OBJS) -lSTMCore $(RRF_OBJS) -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
 	$(V)$(OBJCOPY) --strip-unneeded -O binary $(BUILD_DIR)/$(OUTPUT_NAME).elf $(BUILD_DIR)/$(OUTPUT_NAME).bin
 	$(V)$(SIZE) $(BUILD_DIR)/$(OUTPUT_NAME).elf
 	-@./staticMemStats.sh $(BUILD_DIR)/$(OUTPUT_NAME).elf
