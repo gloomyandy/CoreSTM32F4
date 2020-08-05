@@ -28,11 +28,13 @@ public:
     void checkComplete() noexcept;
     void flushRx() noexcept;
     void startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept;
+    void startTransferAndWait(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept;
     static HardwareSPI SSP1;
     static HardwareSPI SSP2;
     static HardwareSPI SSP3;
 
 private:
+    bool usingDma;
     spi_t spi;
     DMA_HandleTypeDef dmaRx;
     DMA_HandleTypeDef dmaTx;

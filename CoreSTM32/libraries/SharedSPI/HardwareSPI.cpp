@@ -47,7 +47,8 @@ void HardwareSPI::disable() noexcept
     debugPrintf("spi disable called\n");
     if (initComplete)
     {
-        HAL_SPI_DMAStop(&(spi.handle));
+        if (usingDma)
+            HAL_SPI_DMAStop(&(spi.handle));
         flushRxFifo(&spi.handle);
         spi_deinit(&spi);
         initComplete = false;
@@ -121,14 +122,20 @@ void HardwareSPI::initPins(Pin clk, Pin miso, Pin mosi, Pin cs, DMA_Stream_TypeD
     spi.pin_sclk = clk;
     spi.pin_miso = miso;
     spi.pin_mosi = mosi;
-    spi.pin_ssel = csPin = cs;   
-    // init the DMA channels
-    __HAL_RCC_DMA2_CLK_ENABLE();
-    __HAL_RCC_DMA1_CLK_ENABLE();
-    initDmaStream(dmaRx, rxStream, rxChan, rxIrq, DMA_PERIPH_TO_MEMORY, DMA_MINC_ENABLE);
-    initDmaStream(dmaTx, txStream, txChan, txIrq, DMA_MEMORY_TO_PERIPH, DMA_MINC_ENABLE);
-    __HAL_LINKDMA(&(spi.handle), hdmarx, dmaRx);
-    __HAL_LINKDMA(&(spi.handle), hdmatx, dmaTx);  
+    spi.pin_ssel = csPin = cs;
+    if (rxStream != nullptr)
+    {   
+        // init the DMA channels
+        __HAL_RCC_DMA2_CLK_ENABLE();
+        __HAL_RCC_DMA1_CLK_ENABLE();
+        initDmaStream(dmaRx, rxStream, rxChan, rxIrq, DMA_PERIPH_TO_MEMORY, DMA_MINC_ENABLE);
+        initDmaStream(dmaTx, txStream, txChan, txIrq, DMA_MEMORY_TO_PERIPH, DMA_MINC_ENABLE);
+        __HAL_LINKDMA(&(spi.handle), hdmarx, dmaRx);
+        __HAL_LINKDMA(&(spi.handle), hdmatx, dmaTx);
+        usingDma = true;
+    }
+    else
+        usingDma = false;
     initComplete = false;
 }
 
@@ -160,7 +167,8 @@ void HardwareSPI::configureDevice(uint32_t deviceMode, uint32_t bits, uint32_t c
     {
         if (initComplete)
         {
-            HAL_SPI_DMAStop(&(spi.handle));
+            if (usingDma)
+                HAL_SPI_DMAStop(&(spi.handle));
             spi_deinit(&spi);
         }
         spi.pin_ssel = cs;
@@ -247,16 +255,38 @@ void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t
         debugPrintf("SPI Error %d\n", (int)status);
 }
 
+
+void HardwareSPI::startTransferAndWait(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept
+{
+    HAL_StatusTypeDef status;
+    if (rx_data == nullptr)
+        status = HAL_SPI_Transmit(&(spi.handle), (uint8_t *)tx_data, len, SPITimeoutMillis);
+    else if (tx_data == nullptr)
+        status = HAL_SPI_TransmitReceive(&(spi.handle), rx_data, rx_data, len, SPITimeoutMillis);
+    else
+        status = HAL_SPI_TransmitReceive(&(spi.handle), (uint8_t *)tx_data, rx_data, len, SPITimeoutMillis);
+    if (status != HAL_OK)
+        debugPrintf("SPI Error %d\n", (int)status);
+}
+
 spi_status_t HardwareSPI::transceivePacket(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept
 {
-    waitingTask = xTaskGetCurrentTaskHandle();
-    startTransfer(tx_data, rx_data, len, transferComplete);
-    spi_status_t ret = SPI_OK;
-    const TickType_t xDelay = SPITimeoutMillis / portTICK_PERIOD_MS; //timeout
-    if( ulTaskNotifyTake(pdTRUE, xDelay) == 0) // timed out
+    if (usingDma)
     {
-        ret = SPI_TIMEOUT;
-        debugPrintf("SPI timeout\n");
+        waitingTask = xTaskGetCurrentTaskHandle();
+        startTransfer(tx_data, rx_data, len, transferComplete);
+        spi_status_t ret = SPI_OK;
+        const TickType_t xDelay = SPITimeoutMillis / portTICK_PERIOD_MS; //timeout
+        if( ulTaskNotifyTake(pdTRUE, xDelay) == 0) // timed out
+        {
+            ret = SPI_TIMEOUT;
+            debugPrintf("SPI timeout\n");
+        }
+        return ret;
     }
-    return ret;
+    else
+    {
+        startTransferAndWait(tx_data, rx_data, len);
+        return SPI_OK;
+    }
 }
