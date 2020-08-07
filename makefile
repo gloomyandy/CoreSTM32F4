@@ -12,8 +12,8 @@ BUILD ?= Debug
 
 #Enable only one
 #NETWORKING ?= true
-ESP8266WIFI ?= true
-#SBC ?= true
+#ESP8266WIFI ?= true
+SBC ?= true
 
 TMC22XX ?= true
 

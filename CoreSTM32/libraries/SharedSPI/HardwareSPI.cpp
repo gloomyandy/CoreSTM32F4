@@ -6,12 +6,30 @@
 #include "task.h"
 #include "spi_com.h"
 
-// Create SPI devices with default pins, these may get changed to alternates later
+/*
+DMA Notes
+The original version of this code only used DMA for all SPI devices. However during testing
+I hit a problem when sharing the DMA2 unit between SPI1 and the software UART code. What appeared
+to be happening was that write operations took places to the wrong GPIO pins, but this only
+seemed to happen when the DMA2 unit was also in use by the SD access code (which uses SPI1).
+The following Errata document describes problems which may be related to this issue (even though
+we are not using the FiFO in this case):
+https://www.st.com/resource/en/errata_sheet/dm00037591-stm32f405-407xx-and-stm32f415-417xx-device-limitations-stmicroelectronics.pdf
+
+For now the solution I've choosen is to not use DMA for SPI1 (as it is not possible to DMA1 with
+SPI1 and DMA1 is not able to access GPIO memory). This seems to work fine and since the SD card is
+only used in a synchronous manner did not require any code to be restructured. It also seems to
+be faster (I suspect because the SD card access code uses many short SPI operations and the DMA
+setup is relatively large). It is probably worth testing the interrupt based version at some
+point.
+
+Andy - 6/8/2020
+*/
+
+// Create SPI devices the actual configuration is set later
 HardwareSPI HardwareSPI::SSP1;
 HardwareSPI HardwareSPI::SSP2;
 HardwareSPI HardwareSPI::SSP3;
-//HardwareSPI HardwareSPI::SSP2(PB_13, PB_14, PB_15, PB_12);
-//HardwareSPI HardwareSPI::SSP3(PC_10, PC_11, PC_12, PA_15);
 
 //#define SSPI_DEBUG
 extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
