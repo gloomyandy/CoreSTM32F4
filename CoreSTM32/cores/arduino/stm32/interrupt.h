@@ -50,7 +50,7 @@
 
 #ifndef EXTI_IRQ_PRIO
 #if (__CORTEX_M == 0x00U)
-#define EXTI_IRQ_PRIO       3
+#define EXTI_IRQ_PRIO       5
 #else
 #define EXTI_IRQ_PRIO       6
 #endif /* __CORTEX_M */
