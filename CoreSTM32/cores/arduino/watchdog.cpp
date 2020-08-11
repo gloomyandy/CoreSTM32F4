@@ -17,17 +17,32 @@
 */
 
 #include "watchdog.h"
+#include "stm32f4xx_hal_rcc.h"
+#include "stm32f4xx_hal_wwdg.h"
+
+static WWDG_HandleTypeDef wdHandle;
 void watchdogEnable (uint32_t timeout)
 {
-	//FIXME need to interface to STM32F4 watchdog, probably the window version as it provides a reset interrupt.
+    wdHandle.Instance = WWDG;
+    wdHandle.Init.Prescaler = WWDG_PRESCALER_8;
+    wdHandle.Init.Window = 0x7f;
+    wdHandle.Init.Counter = 0x7f;
+    wdHandle.Init.EWIMode = WWDG_EWI_ENABLE;
+    __HAL_RCC_WWDG_CLK_ENABLE();
+    HAL_WWDG_Init(&wdHandle);
+    __HAL_WWDG_ENABLE_IT(&wdHandle, WWDG_IT_EWI);
+    __HAL_WWDG_ENABLE(&wdHandle);
+    NVIC_EnableIRQ(WWDG_IRQn);
 }
 
 void watchdogDisable(void)
 {
+    __HAL_RCC_WWDG_CLK_DISABLE();
 }
 
 void watchdogReset(void)
 {
+    HAL_WWDG_Refresh(&wdHandle);
 }
 
 // End
