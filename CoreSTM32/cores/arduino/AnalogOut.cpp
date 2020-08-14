@@ -18,7 +18,8 @@
 
 #include "Core.h"
 #include "AnalogOut.h"
-
+#include "HybridPWM.h"
+extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 // Analog write to DAC, PWM, TC or plain output pin
 // Setting the frequency of a TC or PWM pin to zero resets it so that the next call to AnalogOut with a non-zero frequency
 // will re-initialise it. The pinMode function relies on this.
@@ -26,9 +27,24 @@ void AnalogOut(Pin pin, float ulValue, PwmFrequency freq)
 {
 	if (pin == NoPin) return;
 	ulValue = constrain<float>(ulValue, 0.0, 1.0);
-	if (pwm_start(pin, freq, (uint32_t) (PWM_MAX_DUTY_CYCLE*ulValue)))
+	HybridPWMPin* hp = HybridPWMPin::find(pin);
+	if (hp == nullptr)
+	{
+		debugPrintf("Trying set set analog value for unallocated pin %x\n", static_cast<int>(pin));
 		return;
-	// Fall back to digital write
-	pinMode(pin, (ulValue < 0.5) ? OUTPUT_LOW : OUTPUT_HIGH);
+	}
+	hp->set(ulValue, freq);
+}
+
+void ReleasePWMPin(Pin pin)
+{
+	HybridPWMPin* hp = HybridPWMPin::find(pin);
+	if (hp == nullptr)
+	{
+		debugPrintf("Release of unallocated PWM pin %x\n", static_cast<int>(pin));
+		return;
+	}
+	debugPrintf("Release of allocated PWM pin %x\n", static_cast<int>(pin));
+	hp->free();
 }
 // End

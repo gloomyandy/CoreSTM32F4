@@ -30,5 +30,5 @@ extern void AnalogOutInit() noexcept;
  * \param freq (optional)
  */
 extern void AnalogOut(Pin pin, float ulValue, PwmFrequency freq = 1000) noexcept;
-
+extern void ReleasePWMPin(Pin pin); 
 #endif // ANALOGOUT_H

@@ -7,7 +7,7 @@ CORE_SRC_DIRS += system system/STM32F4xx system/Middlewares/ST/STM32_USB_Device_
 CORE_SRC_DIRS += system/Drivers/CMSIS/Device/ST/STM32F4xx/Include system/Drivers/CMSIS/Device/ST/STM32F4xx/Source
 CORE_SRC_DIRS += system/Drivers/STM32F4xx_HAL_Driver/Inc system/Drivers/STM32F4xx_HAL_Driver/Src
 CORE_SRC_DIRS += CMSIS/CMSIS/Core/Include system/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc
-CORE_SRC_DIRS += variants/BIGTREE_SKR_PRO_1v1 libraries/ConfigurableUART libraries/SharedSPI
+CORE_SRC_DIRS += variants/BIGTREE_SKR_PRO_1v1 libraries/ConfigurableUART libraries/SharedSPI libraries/PWM
 #Core libraries
 CORE_SRC_DIRS += libraries/Wire 
 # libraries/SDCard libraries/SharedSPI libraries/SoftwarePWM libraries/ConfigurableUART

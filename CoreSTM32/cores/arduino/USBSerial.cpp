@@ -22,6 +22,7 @@
 #include "usbd_cdc.h"
 #include "usbd_cdc_if.h"
 #include "usbd_desc.h"
+#include "Core.h"
 #include "wiring.h"
 
 extern __IO  uint32_t lineState;

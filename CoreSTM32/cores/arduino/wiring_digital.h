@@ -47,9 +47,9 @@ enum PinMode
  * \param ulMode Either INPUT or OUTPUT
  * \param debounceCutoff Debounce cutoff frequency (only one can be set per PIO)
  */
-extern void pinModeDuet(uint32_t pin, enum PinMode dwMode, uint32_t debounceCutoff) noexcept;
+extern void pinModeDuet(Pin pin, enum PinMode dwMode, uint32_t debounceCutoff) noexcept;
 
-static inline void pinMode(uint32_t pin, enum PinMode dwMode) noexcept
+static inline void pinMode(Pin pin, enum PinMode dwMode) noexcept
 {
 	pinModeDuet(pin, dwMode, 0);
 }
@@ -63,7 +63,7 @@ static inline void pinMode(uint32_t pin, enum PinMode dwMode) noexcept
  * \param dwPin the pin number
  * \param dwVal HIGH or LOW
  */
-extern void digitalWrite(uint32_t dwPin, uint32_t dwVal) ;
+extern void digitalWrite(Pin dwPin, uint32_t dwVal) ;
 
 /**
  * \brief Reads the value from a specified digital pin, either HIGH or LOW.
@@ -72,16 +72,16 @@ extern void digitalWrite(uint32_t dwPin, uint32_t dwVal) ;
  *
  * \return HIGH or LOW
  */
-extern int digitalRead(uint32_t ulPin) ;
+extern int digitalRead(Pin ulPin) ;
 
 /**
  * \brief Toggle the value from a specified digital pin.
  *
  * \param ulPin The number of the digital pin you want to toggle (int)
  */
-extern void digitalToggle(uint32_t ulPin) ;
+extern void digitalToggle(Pin ulPin) ;
 
-extern void setPullup(uint32_t pin, bool en) ;
+extern void setPullup(Pin pin, bool en) ;
 
 #ifdef __cplusplus
 }

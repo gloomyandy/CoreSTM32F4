@@ -18,6 +18,7 @@
 
 #include "Arduino.h"
 #include "PinConfigured.h"
+#include "HybridPWM.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,29 +26,9 @@ extern "C" {
 
 
 extern uint32_t g_anOutputPinConfigured[MAX_NB_PORT];
-void pinModeDuet(uint32_t pin, enum PinMode ulMode, uint32_t debounceCutoff) noexcept
+void pinModeDuet(Pin pin, enum PinMode ulMode, uint32_t debounceCutoff) noexcept
 {
-    if(pin == NC) return;
-    // If the pin that support PWM or DAC output, we need to turn it off
-#if defined(HAL_DAC_MODULE_ENABLED) || defined(HAL_TIM_MODULE_ENABLED)
-    if (is_pin_configured(pin, g_anOutputPinConfigured)) {
-#ifdef HAL_DAC_MODULE_ENABLED
-      if (pin_in_pinmap(pin, PinMap_DAC)) {
-        dac_stop(pin);
-      } else
-#endif //HAL_DAC_MODULE_ENABLED
-#ifdef HAL_TIM_MODULE_ENABLED
-        if (pin_in_pinmap(pin, PinMap_PWM)) {
-          pwm_stop(pin);
-        }
-#endif //HAL_TIM_MODULE_ENABLED
-      {
-        reset_pin_configured(pin, g_anOutputPinConfigured);
-      }
-    }
-#endif    
-    //const PinDescription& pinDesc = g_APinDescription[pin];
-
+    if(pin == NoPin) return;
     switch (ulMode)
     {
         case INPUT:
@@ -73,19 +54,11 @@ void pinModeDuet(uint32_t pin, enum PinMode ulMode, uint32_t debounceCutoff) noe
             break;
             
         case OUTPUT_PWM_LOW:
-            if (pwm_start(pin, 1000, 0))
-            {
-                if (is_pin_configured(pin, g_anOutputPinConfigured) == false) 
-                  set_pin_configured(pin, g_anOutputPinConfigured);
-            }
+            HybridPWMPin::allocate(pin, 0.0f);
             break;
             
         case OUTPUT_PWM_HIGH:
-            if (pwm_start(pin, 1000, PWM_MAX_DUTY_CYCLE))
-            {
-                if (is_pin_configured(pin, g_anOutputPinConfigured) == false) 
-                  set_pin_configured(pin, g_anOutputPinConfigured);
-            }
+            HybridPWMPin::allocate(pin, 1.0f);
             break;
 
         case AIN:
@@ -108,25 +81,25 @@ void pinModeDuet(uint32_t pin, enum PinMode ulMode, uint32_t debounceCutoff) noe
     }
 }
 
-void digitalWrite(uint32_t ulPin, uint32_t ulVal)
+void digitalWrite(Pin ulPin, uint32_t ulVal)
 {
   if (ulPin == NC) return;
   digitalWriteFast(digitalPinToPinName(ulPin), ulVal);
 }
 
-int digitalRead(uint32_t ulPin)
+int digitalRead(Pin ulPin)
 {
   if (ulPin == NC) return 0;
   return digitalReadFast(digitalPinToPinName(ulPin));
 }
 
-void digitalToggle(uint32_t ulPin)
+void digitalToggle(Pin ulPin)
 {
   if (ulPin == NC) return;
   digitalToggleFast(digitalPinToPinName(ulPin));
 }
 
-void setPullup(uint32_t pin, bool en)
+void setPullup(Pin pin, bool en)
 {
   if (pin == NC) return;
   if (en)
