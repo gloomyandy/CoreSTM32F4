@@ -65,7 +65,7 @@ HybridPWMBase *HardwarePWM::allocate(Pin pin, uint32_t freq, float value) noexce
             free = (int)i;
     }
     if (free < 0) return nullptr;
-    debugPrintf("Allocated slot %d timer %d chan %d to pin %x\n", free, index, chan, pin);
+    debugPrintf("Allocated slot %d timer %d chan %d to pin %x\n", free, index+1, chan, pin);
     // If we get here then we can use the hardware
     PWMChans[free].timer = t;
     PWMChans[free].channel = chan;
@@ -90,5 +90,5 @@ void HardwarePWM::appendStatus(const StringRef& reply) noexcept
     TIM_TypeDef *instance = (TIM_TypeDef *)pinmap_peripheral(pwmPin->pin, PinMap_PWM);
     uint32_t index = get_timer_index(instance);
 
-    reply.catf(" Tim %d chan %d", static_cast<int>(index), static_cast<int>(channel));
+    reply.catf(" Tim %d chan %d", static_cast<int>(index+1), static_cast<int>(channel));
 }

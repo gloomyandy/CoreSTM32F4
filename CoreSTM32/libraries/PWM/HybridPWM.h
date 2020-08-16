@@ -63,6 +63,7 @@ class SoftwarePWM : HybridPWMBase
         virtual void appendStatus(const StringRef& reply) noexcept;
         static HybridPWMBase *allocate(Pin pin, uint32_t freq, float value) noexcept;
     private:
+        void setValue(Pin pin, float value) noexcept;
         int32_t channel;
         uint32_t period;
 };

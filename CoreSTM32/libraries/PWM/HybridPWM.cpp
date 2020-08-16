@@ -82,7 +82,7 @@ void HybridPWMPin::set(float value, uint32_t freq) noexcept
 void HybridPWMPin::appendStatus(const StringRef& reply) noexcept
 {
     if (pin == NoPin) return;
-    reply.catf(" Pin %c.%d freq %d value %f", (pin >> 4) + 'A', static_cast<int>(pin) & 0xf, static_cast<int>(freq), (float)value);
+    reply.catf(" Pin %c.%d freq %d value %f", (pin >> 4) + 'A', static_cast<int>(pin) & 0xf, static_cast<int>(freq), (double)value);
     if (pwm) pwm->appendStatus(reply);
 }
 

@@ -486,8 +486,8 @@ void xPortPendSVHandler( void )
 }
 /*-----------------------------------------------------------*/
 
-//void xPortSysTickHandler( void )
-void osSystickHandler()
+void xPortSysTickHandler( void )
+//void osSystickHandler()
 {
 	/* The SysTick runs at the lowest interrupt priority, so when this interrupt
 	executes all interrupts must be unmasked.  There is therefore no need to

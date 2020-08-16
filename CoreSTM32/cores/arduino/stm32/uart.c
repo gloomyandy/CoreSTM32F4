@@ -703,7 +703,7 @@ void uart_attach_rx_callback(serial_t *obj, void (*callback)(serial_t *))
   HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->recv), 1);
 
   /* Enable interrupt */
-  HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
+  //HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
   HAL_NVIC_EnableIRQ(obj->irq);
 }
 
@@ -728,9 +728,15 @@ void uart_attach_tx_callback(serial_t *obj, int (*callback)(serial_t *))
   HAL_UART_Transmit_IT(uart_handlers[obj->index], &obj->tx_buff[obj->tx_tail], 1);
 
   /* Enable interrupt */
-  HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
+  //HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
   HAL_NVIC_EnableIRQ(obj->irq);
 }
+
+void uart_set_interrupt_priority(serial_t *obj, uint32_t priority)
+{
+  HAL_NVIC_SetPriority(obj->irq, priority, 0);
+}
+
 
 /**
   * @brief  Return index of the serial handler

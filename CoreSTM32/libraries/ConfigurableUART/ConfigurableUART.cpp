@@ -266,10 +266,7 @@ void ConfigurableUART::setInterruptPriority(uint32_t priority) noexcept
 {
     if(serialPort != nullptr)
     {
-#if 0
-//FIXME
         serialPort->setInterruptPriority(priority);
-#endif
     }
 }
 

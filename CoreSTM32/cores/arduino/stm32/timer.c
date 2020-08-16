@@ -31,12 +31,12 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim_base)
   enableTimerClock(htim_base);
 
   // configure Update interrupt
-  HAL_NVIC_SetPriority(getTimerUpIrq(htim_base->Instance), TIM_IRQ_PRIO, TIM_IRQ_SUBPRIO);
+  //HAL_NVIC_SetPriority(getTimerUpIrq(htim_base->Instance), TIM_IRQ_PRIO, TIM_IRQ_SUBPRIO);
   HAL_NVIC_EnableIRQ(getTimerUpIrq(htim_base->Instance));
 
   if (getTimerCCIrq(htim_base->Instance) != getTimerUpIrq(htim_base->Instance)) {
     // configure Capture Compare interrupt
-    HAL_NVIC_SetPriority(getTimerCCIrq(htim_base->Instance), TIM_IRQ_PRIO, TIM_IRQ_SUBPRIO);
+    //HAL_NVIC_SetPriority(getTimerCCIrq(htim_base->Instance), TIM_IRQ_PRIO, TIM_IRQ_SUBPRIO);
     HAL_NVIC_EnableIRQ(getTimerCCIrq(htim_base->Instance));
   }
 }

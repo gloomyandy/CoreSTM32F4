@@ -142,7 +142,8 @@ class HardwareSerial : public Stream {
     void setTx(uint32_t _tx) noexcept;
     void setRx(PinName _rx) noexcept;
     void setTx(PinName _tx) noexcept;
-
+    void setInterruptPriority(uint32_t priority) noexcept;
+    uint32_t getInterruptPriority() noexcept;
     friend class STM32LowPower;
 
     // Interrupt handlers

@@ -36,6 +36,7 @@ uint32_t pwmMaxTime = 0;
 uint32_t pwmAdjust = 0;
 uint32_t pwmBad = 0;
 uint32_t pwmBigDelta = 0;
+uint32_t pwmVBigDelta = 0;
 #endif
 
 static void updateActive()
@@ -48,19 +49,24 @@ static void updateActive()
             last = i;
             if (first < 0) first = i;
         }
+    bool timerRunning = (endActive >= 0);
     if (last >= 0)
     {
-        last += 1;
+        startActive = first;
+        endActive = last + 1;
         // If timer not currently running restart it
-        if (endActive < 0)
+        if (!timerRunning)
         {
+            debugPrintf("Resume timer\n");
             SPWMTimer.resume();
         }
     }
     else
+    {
+        startActive = endActive = -1;
         SPWMTimer.pause();
-    startActive = first;
-    endActive = last;
+        debugPrintf("Pause timer\n");
+    }
 }
 
 void syncAll()
@@ -73,12 +79,12 @@ void syncAll()
         if (States[i].enabled)
         {
             States[i].state = 1;
-            States[i].nextEvent = 0;
+            States[i].nextEvent = MinimumInterruptDeltaUS;
         }
     baseTime = 0;
     baseDelta = MinimumInterruptDeltaUS;
     SPWMTimer.setOverflow(baseDelta, TICK_FORMAT);
-    SPWMTimer.setCount(0);
+    SPWMTimer.setCount(1);
     endActive = -1;
     updateActive();
 } 
@@ -188,6 +194,7 @@ void SPWM_Handler(HardwareTimer * notused)
 #endif
     }
     // Set the new compare value
+    if (next > 0xffff) pwmVBigDelta++;
     if (next > 0xffff) next = 0xffff;
     baseDelta = next;
 	SPWMTimer.setOverflow(next, TICK_FORMAT);
@@ -220,7 +227,7 @@ static void initTimer() noexcept
 #ifdef LPC_DEBUG
 void SPWMDiagnostics()
 {
-    debugPrintf("Ints: %u; Calls %u; fast: %uuS; slow %uuS adj %u bad %u big delta %u\n", (unsigned)pwmInts, (unsigned)pwmCalls, (unsigned)pwmMinTime, (unsigned)pwmMaxTime, (unsigned)pwmAdjust, (unsigned)pwmBad, (unsigned)pwmBigDelta);
+    debugPrintf("Ints: %u; Calls %u; fast: %uuS; slow %uuS adj %u bad %u big delta %u vbd %u\n", (unsigned)pwmInts, (unsigned)pwmCalls, (unsigned)pwmMinTime, (unsigned)pwmMaxTime, (unsigned)pwmAdjust, (unsigned)pwmBad, (unsigned)pwmBigDelta, (unsigned)pwmVBigDelta);
     pwmMinTime = UINT32_MAX;
     pwmMaxTime = 0;
     pwmInts = 0;
@@ -253,30 +260,32 @@ HybridPWMBase *SoftwarePWM::allocate(Pin pin, uint32_t freq, float value) noexce
         if (PWMChans[i].period == 0xffffffff)
         {
             PWMChans[i].period = (freq!=0)?(1000000/freq):0;
-            PWMChans[i].setValue(value);
+            PWMChans[i].setValue(pin, value);
             return &PWMChans[i];
         }
     return nullptr;
 
 }
 
-void SoftwarePWM::setValue(float value) noexcept
+void SoftwarePWM::setValue(Pin pin, float value) noexcept
 {
     if (period == 0)
     {
-        pinMode(pwmPin->pin, (value < 0.5) ? OUTPUT_LOW : OUTPUT_HIGH);
+        pinMode(pin, (value < 0.5) ? OUTPUT_LOW : OUTPUT_HIGH);
+        return;
     }
     uint32_t onTime = (uint32_t)(period * value);
     if(onTime < MinimumInterruptDeltaUS){ onTime = 0; }
     if(onTime > (period-MinimumInterruptDeltaUS)){ onTime = period; }
     if (onTime == 0)
     {
+        debugPrintf("pin %d chan %d off\n", pin, channel);
         if (channel >= 0)
         {
             disable(channel);
             channel = -1;
         }
-        pinMode(pwmPin->pin, OUTPUT_LOW);
+        pinMode(pin, OUTPUT_LOW);
     }
     else if (onTime == period)
     {
@@ -285,16 +294,25 @@ void SoftwarePWM::setValue(float value) noexcept
             disable(channel);
             channel = -1;
         }
-        pinMode(pwmPin->pin, OUTPUT_HIGH);
+        debugPrintf("pin %d chan %d on\n", pin, channel);
+        pinMode(pin, OUTPUT_HIGH);
 
     }
     else
     {
         if (channel < 0)
-            channel = enable(pwmPin->pin, onTime, period - onTime);
+        {
+            channel = enable(pin, onTime, period - onTime);
+            debugPrintf("pin %d chan %d pwm\n", pin, channel);
+        }
         else
             adjustOnOffTime(channel, onTime, period - onTime);
     }
+}
+
+void SoftwarePWM::setValue(float value) noexcept
+{
+    setValue(pwmPin->pin, value);
 }
 
 void SoftwarePWM::appendStatus(const StringRef& reply) noexcept

@@ -168,7 +168,7 @@ void stm32_interrupt_enable(GPIO_TypeDef *port, uint16_t pin, StandardCallbackFu
   gpio_irq_conf[id].param = param;
 
   // Enable and set EXTI Interrupt
-  HAL_NVIC_SetPriority(gpio_irq_conf[id].irqnb, EXTI_IRQ_PRIO, EXTI_IRQ_SUBPRIO);
+  //HAL_NVIC_SetPriority(gpio_irq_conf[id].irqnb, EXTI_IRQ_PRIO, EXTI_IRQ_SUBPRIO);
   HAL_NVIC_EnableIRQ(gpio_irq_conf[id].irqnb);
 }
 

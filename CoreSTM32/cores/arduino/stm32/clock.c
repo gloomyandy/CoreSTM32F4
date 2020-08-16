@@ -95,7 +95,8 @@ void osSystickHandler() __attribute__((weak, alias("noOsSystickHandler")));
   * @retval None
   */
 
-void SysTick_Handler(void)
+//void SysTick_Handler(void)
+void CoreSysTick(void)
 {
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();

@@ -456,4 +456,14 @@ void HardwareSerial::setTx(PinName _tx)
   _serial.pin_tx = _tx;
 }
 
+void HardwareSerial::setInterruptPriority(uint32_t priority) noexcept
+{
+  uart_set_interrupt_priority(&_serial, priority);
+}
+
+uint32_t HardwareSerial::getInterruptPriority() noexcept
+{
+  // FIXME need to actually get the priority
+  return 0;
+}
 #endif // HAL_UART_MODULE_ENABLED
