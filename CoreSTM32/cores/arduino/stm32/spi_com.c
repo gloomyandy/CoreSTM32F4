@@ -140,7 +140,8 @@ void spi_init(spi_t *obj, uint32_t spimode, uint32_t speed, spi_mode_e mode, uin
 
   SPI_HandleTypeDef *handle = &(obj->handle);
   uint32_t spi_freq = 0;
-  uint32_t pull = 0;
+  // See FIXME below
+  //uint32_t pull = 0;
 
   // Determine the SPI to use
   SPI_TypeDef *spi_mosi = pinmap_peripheral(obj->pin_mosi, PinMap_SPI_MOSI);

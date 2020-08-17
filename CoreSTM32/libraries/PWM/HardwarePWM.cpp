@@ -33,8 +33,7 @@ void HardwarePWM::free() noexcept
 
 HybridPWMBase *HardwarePWM::allocate(Pin pin, uint32_t freq, float value) noexcept
 {
-    return nullptr;
-    debugPrintf("HWPWM allocate pin %x, freq %d\n", static_cast<int>(pin), static_cast<int>(freq));
+    //debugPrintf("HWPWM allocate pin %x, freq %d\n", static_cast<int>(pin), static_cast<int>(freq));
     // first find out if we have a timer for this pin
     TIM_TypeDef *instance = (TIM_TypeDef *)pinmap_peripheral(pin, PinMap_PWM);
     if (instance == nullptr) return nullptr;
@@ -65,7 +64,7 @@ HybridPWMBase *HardwarePWM::allocate(Pin pin, uint32_t freq, float value) noexce
             free = (int)i;
     }
     if (free < 0) return nullptr;
-    debugPrintf("Allocated slot %d timer %d chan %d to pin %x\n", free, index+1, chan, pin);
+    //debugPrintf("Allocated slot %d timer %d chan %d to pin %x\n", free, index+1, chan, pin);
     // If we get here then we can use the hardware
     PWMChans[free].timer = t;
     PWMChans[free].channel = chan;

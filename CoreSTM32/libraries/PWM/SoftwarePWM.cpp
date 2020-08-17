@@ -3,7 +3,7 @@
 
 #include "HybridPWM.h"
 extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
-#define LPC_DEBUG
+//#define LPC_DEBUG
 HardwareTimer SPWMTimer(TIM7);
 
 // Minimum period between interrupts - in microseconds (to prevent starving other tasks)
@@ -57,7 +57,7 @@ static void updateActive()
         // If timer not currently running restart it
         if (!timerRunning)
         {
-            debugPrintf("Resume timer\n");
+            //debugPrintf("Resume timer\n");
             SPWMTimer.resume();
         }
     }
@@ -65,7 +65,7 @@ static void updateActive()
     {
         startActive = endActive = -1;
         SPWMTimer.pause();
-        debugPrintf("Pause timer\n");
+        //debugPrintf("Pause timer\n");
     }
 }
 
@@ -194,11 +194,11 @@ void SPWM_Handler(HardwareTimer * notused)
 #endif
     }
     // Set the new compare value
-    if (next > 0xffff) pwmVBigDelta++;
     if (next > 0xffff) next = 0xffff;
     baseDelta = next;
 	SPWMTimer.setOverflow(next, TICK_FORMAT);
 #ifdef LPC_DEBUG
+    if (next >= 0xffff) pwmVBigDelta++;
     if (SPWMTimer.getCount(TICK_FORMAT) >= next)
         pwmBad++;
 #endif
@@ -253,7 +253,7 @@ void SoftwarePWM::free() noexcept
 
 HybridPWMBase *SoftwarePWM::allocate(Pin pin, uint32_t freq, float value) noexcept
 {
-    debugPrintf("SWPWM allocate pin %x, freq %d\n", static_cast<int>(pin), static_cast<int>(freq));
+    //debugPrintf("SWPWM allocate pin %x, freq %d\n", static_cast<int>(pin), static_cast<int>(freq));
     if (!timerReady)
         initTimer();
     for(uint32_t i = 0; i < MaxPWMChannels; i++)
@@ -279,7 +279,7 @@ void SoftwarePWM::setValue(Pin pin, float value) noexcept
     if(onTime > (period-MinimumInterruptDeltaUS)){ onTime = period; }
     if (onTime == 0)
     {
-        debugPrintf("pin %d chan %d off\n", pin, channel);
+        //debugPrintf("pin %d chan %d off\n", pin, channel);
         if (channel >= 0)
         {
             disable(channel);
@@ -294,7 +294,7 @@ void SoftwarePWM::setValue(Pin pin, float value) noexcept
             disable(channel);
             channel = -1;
         }
-        debugPrintf("pin %d chan %d on\n", pin, channel);
+        //debugPrintf("pin %d chan %d on\n", pin, channel);
         pinMode(pin, OUTPUT_HIGH);
 
     }
@@ -303,7 +303,7 @@ void SoftwarePWM::setValue(Pin pin, float value) noexcept
         if (channel < 0)
         {
             channel = enable(pin, onTime, period - onTime);
-            debugPrintf("pin %d chan %d pwm\n", pin, channel);
+            //debugPrintf("pin %d chan %d pwm\n", pin, channel);
         }
         else
             adjustOnOffTime(channel, onTime, period - onTime);

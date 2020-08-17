@@ -231,10 +231,10 @@ void HardwareSPI::checkComplete() noexcept
     }
     uint32_t err = HAL_DMA_GetError(spi.handle.hdmarx);
     if (err != 0)
-        debugPrintf("rx dma error %d\n", err);
+        debugPrintf("rx dma error %d\n", (int)err);
     err = HAL_DMA_GetError(spi.handle.hdmatx);
     if (err != 0)
-        debugPrintf("tx dma error %d\n", err);
+        debugPrintf("tx dma error %d\n", (int)err);
 }
 
 void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept
