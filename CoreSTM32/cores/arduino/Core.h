@@ -155,7 +155,12 @@ extern const PinDescription g_APinDescription[];
 
 // Include board variant
 #include "variant.h"
-
+#define SAM4E	0
+#define SAM4S	0
+#define SAM3XA	0
+#define SAME70	0
+#define SAME5x  0
+#define SAMC21  0
 #include "wiring.h"
 #include "wiring_digital.h"
 #include "watchdog.h"
