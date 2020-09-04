@@ -1,6 +1,6 @@
 /*
- * FreeRTOS Kernel V10.0.0
- * Copyright (C) 2017 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+ * FreeRTOS Kernel V10.3.1
+ * Copyright (C) 2020 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
@@ -10,8 +10,7 @@
  * subject to the following conditions:
  *
  * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software. If you wish to use our Amazon
- * FreeRTOS name, please do so in a fair use way that does not cause confusion.
+ * copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
@@ -117,14 +116,12 @@ static const size_t xHeapStructSize	= ( sizeof( BlockLink_t ) + ( ( size_t ) ( p
 /* Create a couple of list links to mark the start and end of the list. */
 static BlockLink_t xStart, *pxEnd = NULL;
 
-/* Keeps track of the number of free bytes remaining, but says nothing about
-fragmentation. */
+/* Keeps track of the number of calls to allocate and free memory as well as the
+number of free bytes remaining, but says nothing about fragmentation. */
 static size_t xFreeBytesRemaining = 0U;
 static size_t xMinimumEverFreeBytesRemaining = 0U;
-
-//sd: added to track size of combined heap
-static size_t xTotalHeapSizeAllocated = 0U;
-
+static size_t xNumberOfSuccessfulAllocations = 0;
+static size_t xNumberOfSuccessfulFrees = 0;
 
 /* Gets set to the top bit of an size_t type.  When this bit in the xBlockSize
 member of an BlockLink_t structure is set then the block belongs to the
@@ -236,6 +233,7 @@ void *pvReturn = NULL;
 					by the application and has no "next" block. */
 					pxBlock->xBlockSize |= xBlockAllocatedBit;
 					pxBlock->pxNextFreeBlock = NULL;
+					xNumberOfSuccessfulAllocations++;
 				}
 				else
 				{
@@ -306,6 +304,7 @@ BlockLink_t *pxLink;
 					xFreeBytesRemaining += pxLink->xBlockSize;
 					traceFREE( pv, pxLink->xBlockSize );
 					prvInsertBlockIntoFreeList( ( ( BlockLink_t * ) pxLink ) );
+					xNumberOfSuccessfulFrees++;
 				}
 				( void ) xTaskResumeAll();
 			}
@@ -333,14 +332,6 @@ size_t xPortGetMinimumEverFreeHeapSize( void )
 	return xMinimumEverFreeBytesRemaining;
 }
 /*-----------------------------------------------------------*/
-
-
-size_t xPortGetTotalHeapSize( void )
-{
-    return xTotalHeapSizeAllocated;
-}
-
-
 
 static void prvInsertBlockIntoFreeList( BlockLink_t *pxBlockToInsert )
 {
@@ -489,14 +480,68 @@ const HeapRegion_t *pxHeapRegion;
 	xMinimumEverFreeBytesRemaining = xTotalHeapSize;
 	xFreeBytesRemaining = xTotalHeapSize;
 
-    //SD::
-    xTotalHeapSizeAllocated = xTotalHeapSize;
-    
-    
 	/* Check something was actually defined before it is accessed. */
 	configASSERT( xTotalHeapSize );
 
 	/* Work out the position of the top bit in a size_t variable. */
 	xBlockAllocatedBit = ( ( size_t ) 1 ) << ( ( sizeof( size_t ) * heapBITS_PER_BYTE ) - 1 );
+}
+/*-----------------------------------------------------------*/
+
+void vPortGetHeapStats( HeapStats_t *pxHeapStats )
+{
+BlockLink_t *pxBlock;
+size_t xBlocks = 0, xMaxSize = 0, xMinSize = portMAX_DELAY; /* portMAX_DELAY used as a portable way of getting the maximum value. */
+
+	vTaskSuspendAll();
+	{
+		pxBlock = xStart.pxNextFreeBlock;
+
+		/* pxBlock will be NULL if the heap has not been initialised.  The heap
+		is initialised automatically when the first allocation is made. */
+		if( pxBlock != NULL )
+		{
+			do
+			{
+				/* Increment the number of blocks and record the largest block seen
+				so far. */
+				xBlocks++;
+
+				if( pxBlock->xBlockSize > xMaxSize )
+				{
+					xMaxSize = pxBlock->xBlockSize;
+				}
+
+				/* Heap five will have a zero sized block at the end of each
+				each region - the block is only used to link to the next
+				heap region so it not a real block. */
+				if( pxBlock->xBlockSize != 0 )
+				{
+					if( pxBlock->xBlockSize < xMinSize )
+					{
+						xMinSize = pxBlock->xBlockSize;
+					}
+				}
+
+				/* Move to the next block in the chain until the last block is
+				reached. */
+				pxBlock = pxBlock->pxNextFreeBlock;
+			} while( pxBlock != pxEnd );
+		}
+	}
+	xTaskResumeAll();
+
+	pxHeapStats->xSizeOfLargestFreeBlockInBytes = xMaxSize;
+	pxHeapStats->xSizeOfSmallestFreeBlockInBytes = xMinSize;
+	pxHeapStats->xNumberOfFreeBlocks = xBlocks;
+
+	taskENTER_CRITICAL();
+	{
+		pxHeapStats->xAvailableHeapSpaceInBytes = xFreeBytesRemaining;
+		pxHeapStats->xNumberOfSuccessfulAllocations = xNumberOfSuccessfulAllocations;
+		pxHeapStats->xNumberOfSuccessfulFrees = xNumberOfSuccessfulFrees;
+		pxHeapStats->xMinimumEverFreeBytesRemaining = xMinimumEverFreeBytesRemaining;
+	}
+	taskEXIT_CRITICAL();
 }
 

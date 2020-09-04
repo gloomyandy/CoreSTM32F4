@@ -46,7 +46,6 @@
 #include "NetworkBufferManagement.h"
 #include "NetworkInterface.h"
 
-
 /* @brief Function prototype for a MS delay function. Board layers or example code may
 *        define this function as needed.
 */
@@ -55,22 +54,6 @@ typedef void (*p_msDelay_func_t)(uint32_t);
 
 TaskHandle_t RRfInitialiseEMACTask(TaskFunction_t pxTaskCode); // defined in RTOSPlusTCPEthernetInterface
 
-///Debugging
-#if defined(COLLECT_NETDRIVER_ERROR_STATS)
-    volatile uint32_t numNetworkRXIntOverrunErrors = 0; //hardware producted overrun error
-    uint32_t numNetworkDroppedPacketsDueToNoBuffer = 0;
-
-    uint32_t numNetworkCRCErrors = 0; //ENET_RINFO_CRC_ERR
-    uint32_t numNetworkSYMErrors = 0; //ENET_RINFO_SYM_ERR
-    uint32_t numNetworkLENErrors = 0; //ENET_RINFO_LEN_ERR
-    uint32_t numNetworkALIGNErrors = 0; //ENET_RINFO_ALIGN_ERR
-    uint32_t numNetworkOVERRUNErrors = 0; //ENET_RINFO_OVERRUN
-
-    uint32_t numRejectedStackPackets = 0;
-
-#endif
-
-
 //****************
 
 /* LPCOpen includes. */
@@ -78,9 +61,6 @@ TaskHandle_t RRfInitialiseEMACTask(TaskFunction_t pxTaskCode); // defined in RTO
 #include "chip.h"
 #include "enet_17xx_40xx.h"
 #include "lpc_phy.h"
-
-/* The size of the stack allocated to the task that handles Rx packets. */
-#define nwRX_TASK_STACK_SIZE	140
 
 #ifndef    EMAC_MAX_BLOCK_TIME_MS
     #define    EMAC_MAX_BLOCK_TIME_MS    100ul
@@ -173,15 +153,18 @@ expansion. */
  /* If ipconfigETHERNET_DRIVER_FILTERS_FRAME_TYPES is set to 1, then the Ethernet
  driver will filter incoming packets and only pass the stack those packets it
  considers need processing. */
- #if( ipconfigETHERNET_DRIVER_FILTERS_FRAME_TYPES == 0 )
- 	#define ipCONSIDER_FRAME_FOR_PROCESSING( pucEthernetBuffer ) eProcessBuffer
-
- #else
- 	#define ipCONSIDER_FRAME_FOR_PROCESSING( pucEthernetBuffer ) eConsiderFrameForProcessing( ( pucEthernetBuffer ) )
- #endif
+#if ipconfigETHERNET_DRIVER_FILTERS_FRAME_TYPES == 0
+    #define ipCONSIDER_FRAME_FOR_PROCESSING( pucEthernetBuffer ) eConsiderFrameForProcessing( ( pucEthernetBuffer ) )
+#else
+    #define ipCONSIDER_FRAME_FOR_PROCESSING( pucEthernetBuffer ) eProcessBuffer
+#endif
 
 #if( ipconfigZERO_COPY_RX_DRIVER == 0 ) || ( ipconfigZERO_COPY_TX_DRIVER == 0 )
-	#warning It is adviced to enable both macros
+	#error This is a zero copy driver only
+#endif
+
+#if( configUSE_RMII != 1 )
+    #error This driver assumes RMII
 #endif
 
 #ifndef configPLACE_IN_SECTION_RAM
@@ -215,8 +198,6 @@ static void prvEMACHandlerTask( void *pvParameters );
  */
 static BaseType_t prvSetLinkSpeed( void );
 
-void EMAC_SetHashFilter(const uint8_t dstMAC_addr[]);
-
 /*
  * Sometimes the DMA will report received data as being longer than the actual
  * received from length.  This function checks the reported length and corrects
@@ -229,7 +210,7 @@ static void prvRemoveTrailingBytes( NetworkBufferDescriptor_t *pxDescriptor );
 /* Bit map of outstanding ETH interrupt events for processing.  Currently only
 the Rx and Tx interrupt is handled, although code is included for other events
 to enable future expansion. */
-static volatile uint32_t ulISREvents;
+static volatile uint32_t ulISREvents = 0;
 
 /* A copy of PHY register 1: 'PHY_REG_01_BMSR' */
 uint32_t ulPHYLinkStatus = 0;
@@ -250,137 +231,114 @@ static uint32_t ulTxDescriptorToClear;
 static __attribute__ ((used,section("AHBSRAM0"))) ENET_RXDESC_T xDMARxDescriptors[ configNUM_RX_DESCRIPTORS ] __attribute__ ( ( aligned( 4 ) ) );
 static __attribute__ ((used,section("AHBSRAM0"))) ENET_RXSTAT_T xDMARxStatuses[ configNUM_RX_DESCRIPTORS ] __attribute__ ( ( aligned( 8 ) ) );
 
-/* Must be defined externally - the demo applications define this in main.c. */
-extern uint8_t ucMACAddress[ 6 ];
-
 /* The handle of the task that processes Rx packets.  The handle is required so
 the task can be notified when new packets arrive. */
 static TaskHandle_t xRxHanderTask = NULL;
 
-#if( ipconfigUSE_LLMNR == 1 )
-	static const uint8_t xLLMNR_MACAddress[] = { 0x01, 0x00, 0x5E, 0x00, 0x00, 0xFC };
-#endif	/* ipconfigUSE_LLMNR == 1 */
-
 /* xTXDescriptorSemaphore is a counting semaphore with
-a maximum count of ETH_TXBUFNB, which is the number of
+a maximum count of configNUM_TX_DESCRIPTORS, which is the number of
 DMA TX descriptors. */
 static SemaphoreHandle_t xTXDescriptorSemaphore = NULL;
+
+///Debugging
+#if defined(COLLECT_NETDRIVER_ERROR_STATS)
+    uint32_t numNetworkDroppedRXPacketsDueToNoBuffer = 0;
+    uint32_t numNetworkDroppedTXPacketsDueToNoBuffer = 0;
+
+    volatile uint32_t numNetworkRXIntOverrunErrors = 0; //hardware producted overrun error
+    uint32_t numNetworkCRCErrors = 0; //ENET_RINFO_CRC_ERR
+    uint32_t numNetworkSYMErrors = 0; //ENET_RINFO_SYM_ERR
+    uint32_t numNetworkLENErrors = 0; //ENET_RINFO_LEN_ERR
+    uint32_t numNetworkALIGNErrors = 0; //ENET_RINFO_ALIGN_ERR
+    uint32_t numNetworkOVERRUNErrors = 0; //ENET_RINFO_OVERRUN
+
+    uint32_t numRejectedStackPackets = 0; //number packets rejected by the TCP/IP stack
+#endif
 
 /*-----------------------------------------------------------*/
 
 
+
+
+
+
 BaseType_t xNetworkInterfaceInitialise( void )
 {
-BaseType_t xReturn = pdPASS;
-static BaseType_t xHasInitialised = pdFALSE;
-
-	if( xHasInitialised == pdFALSE )
+    BaseType_t xReturn = pdPASS;
+    static BaseType_t xHasHWInitialised = pdFALSE;
+    
+	if( xHasHWInitialised == pdFALSE )
 	{
-		xHasInitialised = pdTRUE;
-
-		/* The interrupt will be turned on when a link is established. */
+		xHasHWInitialised = pdTRUE;
+        
 		NVIC_DisableIRQ( ETHERNET_IRQn );
 
-        #if( configUSE_RMII == 1 )
-            Chip_ENET_Init(LPC_ETHERNET, true);
-        #else
-            Chip_ENET_Init(LPC_ETHERNET, false);
-        #endif
+        Chip_ENET_Init(LPC_ETHERNET, true); //init RMII
         
         //by default Chip_ENET_Init will set frame size to max it can handle
         //so we will set if based on the value we get from +TCP
         LPC_ETHERNET->MAC.MAXF = ipTOTAL_ETHERNET_FRAME_SIZE;
-        //LPC_ETHERNET->MAC.MAXF = ENET_ETH_MAX_FLEN;
 
         /* Setup MII clock rate and PHY address */
         Chip_ENET_SetupMII(LPC_ETHERNET, Chip_ENET_FindMIIDiv(LPC_ETHERNET, 2500000), 1);
 
         /* Save MAC address. */
-		Chip_ENET_SetADDR( LPC_ETHERNET, ucMACAddress );
+		Chip_ENET_SetADDR( LPC_ETHERNET, FreeRTOS_GetMACAddress() );
 
         /* Clear all MAC address hash entries. */
         LPC_ETHERNET->RXFILTER.HashFilterH = 0;
         LPC_ETHERNET->RXFILTER.HashFilterL = 0;
         
-        #if( ipconfigUSE_LLMNR == 1 )
-        {
-            EMAC_SetHashFilter(xLLMNR_MACAddress);
-        }
-        #endif /* ipconfigUSE_LLMNR == 1 */
+        /* Initialise the descriptors. */
+        prvSetupTxDescriptors();
+        prvSetupRxDescriptors();
 
+        /* lpc17xx Enable RX/TX after descriptors are setup */
+        Chip_ENET_TXEnable(LPC_ETHERNET);
+        Chip_ENET_RXEnable(LPC_ETHERNET);
         
-		#if( configUSE_RMII == 1 )
-		{
-			if( lpc_phy_init( pdTRUE, prvDelay ) != SUCCESS )
-			{
-				xReturn = pdFAIL;
-                FreeRTOS_debug_printf( ( "\nxNetworkInterfaceInitialise(): Init Phy FAILED!!\n" ) );
-            } else {
-                FreeRTOS_debug_printf( ( "\nxNetworkInterfaceInitialise(): Init Phy Success!!\n" ) );
+        //Accept perfect match and broadcast frames
+        Chip_ENET_EnableRXFilter(LPC_ETHERNET, ENET_RXFILTERCTRL_APE | ENET_RXFILTERCTRL_ABE);
+
+        /* Enable MAC interrupts. */
+        Chip_ENET_EnableInt(LPC_ETHERNET, nwDMA_INTERRUPT_MASK);
+        
+        uint8_t retry = 3;
+        while(retry > 0)
+        {
+            if( lpc_phy_init( pdTRUE, prvDelay ) == SUCCESS )
+            {
+                break;
             }
-		}
-		#else
-		{
-			#warning This path has not been tested.
-			if( lpc_phy_init( pdFALSE, prvDelay ) != SUCCESS )
-			{
-				xReturn = pdFAIL;
-			}
-		}
-		#endif
-
-        
-        uint16_t rxFilter = 0;
-        rxFilter |= ENET_RXFILTERCTRL_APE; //Accept perfect match
-        rxFilter |= ENET_RXFILTERCTRL_ABE; //Accept broadcast
-        #if (ipconfigUSE_LLMNR)
-        {
-            rxFilter |= ENET_RXFILTERCTRL_AMHE;//Accept Multicast hash
+            
+            prvDelay(100);
+            retry--;
         }
-        #endif
 
-        Chip_ENET_EnableRXFilter(LPC_ETHERNET, rxFilter);
+        /* Auto-negotiate was already started.  Wait for it to complete. */
+        xReturn = prvSetLinkSpeed();
         
-        //If Hardware initialised correctly, initialise descriptors etc
-		if( xReturn == pdPASS )
-		{
-			if( xTXDescriptorSemaphore == NULL )
-			{
-				/* Create a counting semaphore, with a value of 'configNUM_TX_DESCRIPTORS'
-				and a maximum of 'configNUM_TX_DESCRIPTORS'. */
-				xTXDescriptorSemaphore = xSemaphoreCreateCounting( ( UBaseType_t ) configNUM_TX_DESCRIPTORS, ( UBaseType_t ) configNUM_TX_DESCRIPTORS );
-				configASSERT( xTXDescriptorSemaphore );
-			}
+        if( xTXDescriptorSemaphore == NULL )
+        {
+            /* Create a counting semaphore, with a value of 'configNUM_TX_DESCRIPTORS'
+            and a maximum of 'configNUM_TX_DESCRIPTORS'. */
+            xTXDescriptorSemaphore = xSemaphoreCreateCounting( ( UBaseType_t ) configNUM_TX_DESCRIPTORS, ( UBaseType_t ) configNUM_TX_DESCRIPTORS );
+            configASSERT( xTXDescriptorSemaphore );
+        }
 
-            /* Auto-negotiate was already started.  Wait for it to complete. */
-            xReturn = prvSetLinkSpeed();
+        /* Guard against the task being created more than once and the
+        descriptors being initialised more than once. */
+        if( xRxHanderTask == NULL )
+        {
+            //xReturn = xTaskCreate( prvEMACHandlerTask, "EMAC", nwRX_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 1, &xRxHanderTask );
+            xRxHanderTask = RRfInitialiseEMACTask(prvEMACHandlerTask);
+            configASSERT( xRxHanderTask != NULL ); // ensure the Task was created
             
-            /* Initialise the descriptors. */
-            prvSetupTxDescriptors();
-            prvSetupRxDescriptors();
-
-            /* lpc17xx Enable RX/TX after descriptors are setup */
-            Chip_ENET_TXEnable(LPC_ETHERNET);
-            Chip_ENET_RXEnable(LPC_ETHERNET);
-            
-            /* Enable MAC interrupts. */
-            Chip_ENET_EnableInt(LPC_ETHERNET, nwDMA_INTERRUPT_MASK);
-
             /* Enable interrupts in the NVIC now the task is created. */
             NVIC_SetPriority( ETHERNET_IRQn, configMAC_INTERRUPT_PRIORITY );
             NVIC_EnableIRQ( ETHERNET_IRQn );
-
-            
-			/* Guard against the task being created more than once and the
-			descriptors being initialised more than once. */
-			if( xRxHanderTask == NULL )
-			{
-				//xReturn = xTaskCreate( prvEMACHandlerTask, "EMAC", nwRX_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 1, &xRxHanderTask );
-                xRxHanderTask = RRfInitialiseEMACTask(prvEMACHandlerTask);
-                configASSERT( xRxHanderTask != NULL ); // ensure the Task was created
-			}
-		}
-	}
+        }
+    }
 
 	/* Once prvEMACHandlerTask() has started, the variable
 	'ulPHYLinkStatus' will be updated by that task. 
@@ -390,6 +348,31 @@ static BaseType_t xHasInitialised = pdFALSE;
 	if( ( ulPHYLinkStatus & PHY_LINK_CONNECTED ) != 0 )
 	{
 		xReturn = pdPASS;
+        static bool firstInit = true;
+        if(firstInit)
+        {
+            /*
+             Note: From Errata sheet Rev. 10.4 — 17 March 2020
+             
+             The TxConsumeIndex register is not updated correctly (from 0 to 1) after the first frame is sent.
+             After the next frame sent, the TxConsumeIndex register is updated by two (from 0 to 2).
+             This only happens the very first time, so subsequent updates are correct (even those from 0 to 1,
+             after wrapping the value to 0 once the value of TxDescriptorNumber has been reached
+            
+             Work-around:
+             Software can correct this situation in many ways; for example, sending a dummy frame after initialization.
+             */
+            
+            //send a dummy frame
+            NetworkBufferDescriptor_t *pxNetworkBuffer = pxGetNetworkBufferWithDescriptor( 64, ( TickType_t ) 0 );
+            if( pxNetworkBuffer != NULL )
+            {
+                pxNetworkBuffer->ulIPAddress = 0; // 0.0.0.0 should be non-routable.
+                xNetworkInterfaceOutput( pxNetworkBuffer, pdTRUE );
+            }
+
+            firstInit = false;
+        }
 	}
 	else
 	{
@@ -403,7 +386,7 @@ static BaseType_t xHasInitialised = pdFALSE;
 /*-----------------------------------------------------------*/
 
 #define BUFFER_SIZE ( ipTOTAL_ETHERNET_FRAME_SIZE + ipBUFFER_PADDING )
-static __attribute__ ((used,section("AHBSRAM0"))) uint8_t ucBuffers[ ipconfigNUM_NETWORK_BUFFER_DESCRIPTORS ][ BUFFER_SIZE ] __attribute__ ( ( aligned( 4 ) ) );
+static __attribute__ ((used,section("AHBSRAM0"))) uint8_t ucBuffers[ ipconfigNUM_NETWORK_BUFFER_DESCRIPTORS ][ BUFFER_SIZE ];
 
 /* Next provide the vNetworkInterfaceAllocateRAMToBuffers() function, which
  simply fills in the pucEthernetBuffer member of each descriptor. */
@@ -428,10 +411,8 @@ static void vClearTXBuffers()
 {
 uint32_t ulLastDescriptor = ulNextFreeTxDescriptor;
 size_t uxCount = ( ( size_t ) configNUM_TX_DESCRIPTORS ) - uxSemaphoreGetCount( xTXDescriptorSemaphore );
-#if( ipconfigZERO_COPY_TX_DRIVER != 0 )
 	NetworkBufferDescriptor_t *pxNetworkBuffer;
 	uint8_t *ucPayLoad;
-#endif
 
     /* This function is called after a TX-completion interrupt.
     It will release each Network Buffer used in xNetworkInterfaceOutput().
@@ -439,28 +420,23 @@ size_t uxCount = ( ( size_t ) configNUM_TX_DESCRIPTORS ) - uxSemaphoreGetCount( 
     
     
     while( uxCount > ( size_t ) 0u )
-
     {
         if( ( ulTxDescriptorToClear == ulLastDescriptor ) && ( uxCount != ( size_t ) configNUM_TX_DESCRIPTORS ) )
         {
             break;
         }
 
-        #if( ipconfigZERO_COPY_TX_DRIVER != 0 )
+        ucPayLoad = ( uint8_t * )xDMATxDescriptors[ ulTxDescriptorToClear ].Packet;
+        if( ucPayLoad != NULL )
         {
-            ucPayLoad = ( uint8_t * )xDMATxDescriptors[ ulTxDescriptorToClear ].Packet;
-            if( ucPayLoad != NULL )
-            {
-                /* Packet points to a pucEthernetBuffer of a Network Buffer descriptor. */
-                pxNetworkBuffer = pxPacketBuffer_to_NetworkBuffer( ucPayLoad );
+            /* Packet points to a pucEthernetBuffer of a Network Buffer descriptor. */
+            pxNetworkBuffer = pxPacketBuffer_to_NetworkBuffer( ucPayLoad );
 
-                configASSERT( pxNetworkBuffer != NULL );
+            configASSERT( pxNetworkBuffer != NULL );
 
-                vReleaseNetworkBufferAndDescriptor( pxNetworkBuffer ) ;
-                xDMATxDescriptors[ ulTxDescriptorToClear ].Packet = ( uint32_t )0u;
-            }
+            vReleaseNetworkBufferAndDescriptor( pxNetworkBuffer ) ;
+            xDMATxDescriptors[ ulTxDescriptorToClear ].Packet = ( uint32_t )0u;
         }
-        #endif /* ipconfigZERO_COPY_TX_DRIVER */
 
         /* Move onto the next descriptor, wrapping if necessary. */
         ulTxDescriptorToClear++;
@@ -484,6 +460,7 @@ BaseType_t xReturn = pdFAIL;
 const TickType_t xBlockTimeTicks = pdMS_TO_TICKS( 50 );
 
     /* Attempt to obtain access to a Tx descriptor. */
+    /* Open a do {} while ( 0 ) loop to be able to call break. */
     do
     {
         if( xTXDescriptorSemaphore == NULL )
@@ -493,6 +470,7 @@ const TickType_t xBlockTimeTicks = pdMS_TO_TICKS( 50 );
         if( xSemaphoreTake( xTXDescriptorSemaphore, xBlockTimeTicks ) != pdPASS )
         {
             /* Time-out waiting for a free TX descriptor. */
+            numNetworkDroppedTXPacketsDueToNoBuffer++;
             break;
         }
         
@@ -509,24 +487,15 @@ const TickType_t xBlockTimeTicks = pdMS_TO_TICKS( 50 );
         else
         {
             
-            #if( ipconfigZERO_COPY_TX_DRIVER != 0 )
-            {
-                /* bReleaseAfterSend should always be set when using the zero copy driver. */
-                configASSERT( bReleaseAfterSend != pdFALSE );
+            /* bReleaseAfterSend should always be set when using the zero copy driver. */
+            configASSERT( bReleaseAfterSend != pdFALSE );
 
-                /* The DMA's descriptor to point directly to the data in the
-                network buffer descriptor.  The data is not copied. */
-                xDMATxDescriptors[ produceIndex ].Packet = ( uint32_t ) pxDescriptor->pucEthernetBuffer;
-                
-                /* The DMA descriptor will 'own' this Network Buffer, until it has been sent.  So don't release it now. */
-                bReleaseAfterSend = pdFALSE;
-            }
-            #else
-            {
-                /* The data is copied from the network buffer descriptor into the DMA's descriptor. */
-                memcpy( ( void * ) xDMATxDescriptors[ produceIndex ].Packet, ( void * ) pxDescriptor->pucEthernetBuffer, pxDescriptor->xDataLength );
-            }
-            #endif
+            /* The DMA's descriptor to point directly to the data in the
+            network buffer descriptor.  The data is not copied. */
+            xDMATxDescriptors[ produceIndex ].Packet = ( uint32_t ) pxDescriptor->pucEthernetBuffer;
+            
+            /* The DMA descriptor will 'own' this Network Buffer, until it has been sent.  So don't release it now. */
+            bReleaseAfterSend = pdFALSE;
 
             //TX Control options:
             //ENET_TCTRL_SIZE(n)       Size of data buffer in bytes
@@ -540,11 +509,8 @@ const TickType_t xBlockTimeTicks = pdMS_TO_TICKS( 50 );
             
             Chip_ENET_IncTXProduceIndex(LPC_ETHERNET); //trigger buffer to transmit...increase the TXProduceIndex
             
-            /* This descriptor is given back to the DMA. */
-
             iptraceNETWORK_INTERFACE_TRANSMIT();
 
-            //
             /* Move onto the next descriptor, wrapping if necessary. */
             ulNextFreeTxDescriptor++;
             if( ulNextFreeTxDescriptor >= configNUM_TX_DESCRIPTORS )
@@ -557,7 +523,7 @@ const TickType_t xBlockTimeTicks = pdMS_TO_TICKS( 50 );
         }
     } while( 0 );
 
-    /* The buffer has been sent so can be released. */
+    /* The buffer has been sent so can be released. (when using zero copy bReleaseAfterSend will be false and buffer will be release after the TX interrupt has been received*/
     if( bReleaseAfterSend != pdFALSE )
     {
         vReleaseNetworkBufferAndDescriptor( pxDescriptor );
@@ -579,7 +545,7 @@ static void prvDelay( uint32_t ulMilliSeconds )
 
 static void prvSetupTxDescriptors( void )
 {
-BaseType_t x;
+    BaseType_t x;
 
       /* Start with Tx descriptors and statuses clear. */
     memset( ( void * ) xDMATxDescriptors, 0, sizeof( xDMATxDescriptors ) );
@@ -594,24 +560,9 @@ BaseType_t x;
 
     for( x = 0; x < configNUM_TX_DESCRIPTORS; x++ )
     {
-        #if( ipconfigZERO_COPY_TX_DRIVER != 0 )
-        {
-            /* Nothing to do, PACKET will be set when data is ready to transmit.
-            Currently the memset above will have set it to NULL. */
-        }
-        #else
-        {
-            /* Allocate a buffer to the Tx descriptor.  This is the most basic
-            way of creating a driver as the data is then copied into the
-            buffer. */
-            xDMATxDescriptors[x].Packet = (uint32_t) pvPortMalloc( BUFFER_SIZE );
-
-            /* Use an assert to check the allocation as +TCP applications will
-            often not use a malloc() failed hook as the TCP stack will recover
-            from allocation failures. */
-            configASSERT( xDMATxDescriptors[ x ].Packet );
-        }
-        #endif
+            /*  We do not allocate a buffer here to the descriptor in Zero Copy.
+                The PACKET will be set when data is ready to transmit.
+                Currently the memset above will have set it to NULL. */
 
         xDMATxDescriptors[x].Control = 0;
         xDMATxStatuses[x].StatusInfo = 0xFFFFFFFF;
@@ -624,10 +575,8 @@ BaseType_t x;
 
 static void prvSetupRxDescriptors( void )
 {
-BaseType_t x;
-#if( ipconfigZERO_COPY_RX_DRIVER != 0 )
+    BaseType_t x;
 	NetworkBufferDescriptor_t *pxNetworkBuffer;
-#endif
     
     /* Clear RX descriptor list. */
     memset( ( void * )  xDMARxDescriptors, 0, sizeof( xDMARxDescriptors ) );
@@ -638,26 +587,16 @@ BaseType_t x;
     {
         /* Allocate a buffer of the largest possible frame size as it is not known what size received frames will be. */
 
-        #if( ipconfigZERO_COPY_RX_DRIVER != 0 )
-        {
-            pxNetworkBuffer = pxGetNetworkBufferWithDescriptor( BUFFER_SIZE, 0 );
+        pxNetworkBuffer = pxGetNetworkBufferWithDescriptor( BUFFER_SIZE, 0 );
 
-            /* During start-up there should be enough Network Buffers available, so it is safe to use configASSERT().
-            In case this assert fails, please check: configNUM_RX_DESCRIPTORS,
-            ipconfigNUM_NETWORK_BUFFER_DESCRIPTORS, and in case BufferAllocation_2.c
-            is included, check the amount of available heap. */
-            configASSERT( pxNetworkBuffer != NULL );
+        /* During start-up there should be enough Network Buffers available, so it is safe to use configASSERT().
+        In case this assert fails, please check: configNUM_RX_DESCRIPTORS,
+        ipconfigNUM_NETWORK_BUFFER_DESCRIPTORS, and in case BufferAllocation_2.c
+        is included, check the amount of available heap. */
+        configASSERT( pxNetworkBuffer != NULL );
 
-            /* Pass the actual buffer to DMA. */
-            xDMARxDescriptors[x].Packet = (uint32_t) pxNetworkBuffer->pucEthernetBuffer;
-        }
-        #else
-        {
-            /* All DMA descriptors are populated with permanent memory blocks.
-            Their contents will be copy to Network Buffers. */
-            xDMARxDescriptors[x].Packet = (uint32_t) pvPortMalloc( BUFFER_SIZE );;
-        }
-        #endif /* ipconfigZERO_COPY_RX_DRIVER */
+        /* Pass the actual buffer to DMA. */
+        xDMARxDescriptors[x].Packet = (uint32_t) pxNetworkBuffer->pucEthernetBuffer;
 
         /* Use an assert to check the allocation as +TCP applications will often
         not use a malloc failed hook as the TCP stack will recover from
@@ -677,8 +616,8 @@ BaseType_t x;
 configPLACE_IN_SECTION_RAM
 static void prvRemoveTrailingBytes( NetworkBufferDescriptor_t *pxDescriptor )
 {
-size_t xExpectedLength;
-IPPacket_t *pxIPPacket;
+    size_t xExpectedLength;
+    IPPacket_t *pxIPPacket;
 
     pxIPPacket = ( IPPacket_t * ) pxDescriptor->pucEthernetBuffer;
     /* Look at the actual length of the packet, translate it to a host-endial notation. */
@@ -700,7 +639,7 @@ IPPacket_t *pxIPPacket;
 configPLACE_IN_SECTION_RAM
 BaseType_t xGetPhyLinkStatus( void )
 {
-BaseType_t xReturn;
+    BaseType_t xReturn;
     
 	if( ( ulPHYLinkStatus & PHY_LINK_CONNECTED ) == 0 )
 	{
@@ -718,174 +657,141 @@ BaseType_t xReturn;
 configPLACE_IN_SECTION_RAM
 static BaseType_t prvNetworkInterfaceInput()
 {
-    BaseType_t xResult = pdFALSE;
-    uint32_t ulStatus;
-    eFrameProcessingResult_t eResult;
+    BaseType_t xReturn = pdFAIL;
+
     const TickType_t xDescriptorWaitTime = pdMS_TO_TICKS( 50u );
-    const UBaseType_t uxMinimumBuffersRemaining = configNUM_TX_DESCRIPTORS;
+    uint16_t consumeIdx = Chip_ENET_GetRXConsumeIndex(LPC_ETHERNET); //consume index for this frame
 
-    uint16_t usLength;
-    NetworkBufferDescriptor_t *pxDescriptor;
-#if( ipconfigZERO_COPY_RX_DRIVER != 0 )
-    NetworkBufferDescriptor_t *pxNewDescriptor;
-#endif /* ipconfigZERO_COPY_RX_DRIVER */
-    IPStackEvent_t xRxEvent = { eNetworkRxEvent, NULL };
-
-    //uint16_t produceIdx = Chip_ENET_GetRXProduceIndex(LPC_ETHERNET);
-    
-    if (!Chip_ENET_IsRxEmpty(LPC_ETHERNET))
+    if(ulPHYLinkStatus & PHY_LINK_CONNECTED )
     {
-        uint16_t consumeIdx = Chip_ENET_GetRXConsumeIndex(LPC_ETHERNET);
-
-        //packet is waiting to be processed
-        ulStatus = xDMARxStatuses[ consumeIdx ].StatusInfo; //get status about packet
-
-#if defined(COLLECT_NETDRIVER_ERROR_STATS)
-        if(ulStatus & ENET_RINFO_CRC_ERR ) numNetworkCRCErrors++;
-        if(ulStatus & ENET_RINFO_SYM_ERR ) numNetworkSYMErrors++;
-        if(ulStatus & ENET_RINFO_LEN_ERR ) numNetworkLENErrors++;
-        if(ulStatus & ENET_RINFO_ALIGN_ERR ) numNetworkALIGNErrors++;
-        if(ulStatus & ENET_RINFO_OVERRUN ) numNetworkOVERRUNErrors++;
-#endif
-
-        
-        /* Check packet for errors */
-        if( ( ulStatus & nwRX_STATUS_ERROR_BITS ) != 0 )
+        xReturn = pdTRUE;
+        //always leave enough buffers for TX not yet allocated
+        const UBaseType_t uxMinimumBuffersRemaining = (configNUM_TX_DESCRIPTORS - uxSemaphoreGetCount(xTXDescriptorSemaphore));
+        if( uxGetNumberOfFreeNetworkBuffers() > uxMinimumBuffersRemaining )
         {
-            /* There is some reception error. Will be dropped. */
+            NetworkBufferDescriptor_t *pxNewDescriptor = pxGetNetworkBufferWithDescriptor( BUFFER_SIZE, xDescriptorWaitTime );
+            if( pxNewDescriptor == NULL )
+            {
+                // timed out waiting for a buffer. Dropping packet. We already checked free buffers above so shouldnt get here.
+                # if defined(COLLECT_NETDRIVER_ERROR_STATS)
+                    numNetworkDroppedRXPacketsDueToNoBuffer++;
+                #endif
+                iptraceETHERNET_RX_EVENT_LOST();
+            }
+            else
+            {
+                uint32_t ulStatus = xDMARxStatuses[ consumeIdx ].StatusInfo; //get status about packet
+
+
+                /* Replace the character buffer 'Packet'. */
+                const uint8_t *pucBuffer = ( const uint8_t * const ) ( xDMARxDescriptors[ consumeIdx ].Packet );
+                xDMARxDescriptors[ consumeIdx ].Packet = ( uint32_t ) pxNewDescriptor->pucEthernetBuffer;
+
+                /* 'Packet' contained the address of a 'pucEthernetBuffer' that
+                belongs to a Network Buffer.  Find the original Network Buffer. */
+                NetworkBufferDescriptor_t *pxDescriptor = pxPacketBuffer_to_NetworkBuffer( pucBuffer );
+                
+                /* This zero-copy driver makes sure that every 'xDMARxDescriptors' contains
+                a reference to a Network Buffer at any time.
+                In case it runs out of Network Buffers, a DMA buffer won't be replaced,
+                and the received messages is dropped. */
+                configASSERT( pxDescriptor != NULL );
+
+                if( pxDescriptor != NULL )
+                {
+                    /* Get the reported frame length. */
+                    uint16_t usLength = ENET_RINFO_SIZE( ulStatus );
+                    //FreeRTOS_debug_printf( ( "prvNetworkInterfaceInput: Pkt len: %d\n", usLength  ));
+
+                    pxDescriptor->xDataLength = ( size_t ) usLength;
+                    /* It is possible that more data was copied than
+                    actually makes up the frame.  If this is the case
+                    adjust the length to remove any trailing bytes. */
+                    prvRemoveTrailingBytes( pxDescriptor );
+
+                    /* Pass the data to the TCP/IP task for processing. */
+                    IPStackEvent_t xRxEvent = { eNetworkRxEvent, NULL };
+                    xRxEvent.pvData = ( void * ) pxDescriptor;
+                    
+                    if( xSendEventStructToIPTask( &xRxEvent, xDescriptorWaitTime ) == pdFALSE )
+                    {
+                        /* Could not send the descriptor into the TCP/IP
+                        stack, it must be released. */
+                        numRejectedStackPackets++;
+                        vReleaseNetworkBufferAndDescriptor( pxDescriptor );
+                        iptraceETHERNET_RX_EVENT_LOST();
+                    }
+                    else
+                    {
+                        iptraceNETWORK_INTERFACE_RECEIVE();
+                    }
+                }
+            }
         }
         else
         {
-            xResult++;
-
-            eResult = ipCONSIDER_FRAME_FOR_PROCESSING( ( const uint8_t * const ) ( xDMARxDescriptors[ consumeIdx ].Packet ) );
-
-            
-            
-            
-            if( eResult == eProcessBuffer )
-            {
-                if( ( ulPHYLinkStatus & PHY_LINK_CONNECTED ) == 0 )
-                {
-                    ulPHYLinkStatus |= PHY_LINK_CONNECTED;
-                }
-
-            #if( ipconfigZERO_COPY_RX_DRIVER != 0 )
-                if( uxGetNumberOfFreeNetworkBuffers() > uxMinimumBuffersRemaining )
-                {
-                    pxNewDescriptor = pxGetNetworkBufferWithDescriptor( BUFFER_SIZE, xDescriptorWaitTime );
-                }
-                else
-                {
-                    /* Too risky to allocate a new Network Buffer. */
-                    pxNewDescriptor = NULL;
-                }
-                if( pxNewDescriptor != NULL )
-            #else
-                if( uxGetNumberOfFreeNetworkBuffers() > uxMinimumBuffersRemaining )
-            #endif /* ipconfigZERO_COPY_RX_DRIVER */
-                {
-                    
-            #if( ipconfigZERO_COPY_RX_DRIVER != 0 )
-                const uint8_t *pucBuffer;
+            //No buffers available
+            # if defined(COLLECT_NETDRIVER_ERROR_STATS)
+                numNetworkDroppedRXPacketsDueToNoBuffer++;
             #endif
-
-                    /* Get the actual length. */
-                    usLength = ENET_RINFO_SIZE( ulStatus );
-                    //FreeRTOS_debug_printf( ( "prvNetworkInterfaceInput: Pkt len: %d\n", usLength  ));
-
-                    #if( ipconfigZERO_COPY_RX_DRIVER != 0 )
-                    {
-                        /* Replace the character buffer 'Packet'. */
-                        pucBuffer = ( const uint8_t * const ) ( xDMARxDescriptors[ consumeIdx ].Packet );
-                        xDMARxDescriptors[ consumeIdx ].Packet = ( uint32_t ) pxNewDescriptor->pucEthernetBuffer;
-
-                        /* 'Packet' contained the address of a 'pucEthernetBuffer' that
-                        belongs to a Network Buffer.  Find the original Network Buffer. */
-                        pxDescriptor = pxPacketBuffer_to_NetworkBuffer( pucBuffer );
-                        /* This zero-copy driver makes sure that every 'xDMARxDescriptors' contains
-                        a reference to a Network Buffer at any time.
-                        In case it runs out of Network Buffers, a DMA buffer won't be replaced,
-                        and the received messages is dropped. */
-                        configASSERT( pxDescriptor != NULL );
-                    }
-                    #else
-                    {
-                        /* Create a buffer of exactly the required length. */
-                        pxDescriptor = pxGetNetworkBufferWithDescriptor( usLength, xDescriptorWaitTime );
-                    }
-                    #endif /* ipconfigZERO_COPY_RX_DRIVER */
-
-                    if( pxDescriptor != NULL )
-                    {
-                        pxDescriptor->xDataLength = ( size_t ) usLength;
-                        #if( ipconfigZERO_COPY_RX_DRIVER == 0 )
-                        {
-                            /* Copy the data into the allocated buffer. */
-                            memcpy( ( void * ) pxDescriptor->pucEthernetBuffer, ( void * ) xDMARxDescriptors[ consumeIdx ].Packet, usLength );
-                        }
-                        #endif /* ipconfigZERO_COPY_RX_DRIVER */
-                        /* It is possible that more data was copied than
-                        actually makes up the frame.  If this is the case
-                        adjust the length to remove any trailing bytes. */
-                        prvRemoveTrailingBytes( pxDescriptor );
-
-                        /* Pass the data to the TCP/IP task for processing. */
-                        xRxEvent.pvData = ( void * ) pxDescriptor;
-                        
-                        if( xSendEventStructToIPTask( &xRxEvent, xDescriptorWaitTime ) == pdFALSE )
-                        {
-                            /* Could not send the descriptor into the TCP/IP
-                            stack, it must be released. */
-                            numRejectedStackPackets++;
-                            vReleaseNetworkBufferAndDescriptor( pxDescriptor );
-                            iptraceETHERNET_RX_EVENT_LOST();
-                        }
-                        else
-                        {
-                            iptraceNETWORK_INTERFACE_RECEIVE();
-                        }
-                    }
-                }
-                else
-                {
-                    // could not allocate a buffer, dropping packet
-# if defined(COLLECT_NETDRIVER_ERROR_STATS)
-                    numNetworkDroppedPacketsDueToNoBuffer++;
-#endif
-                }
-            } else {
-                //frame dropped, wasnt for us
-                
-                
-            }
-        } /* if( ( ulStatus & nwRX_STATUS_ERROR_BITS ) != 0 ) */
-        
-        
-        /* Got here because received data was sent to the IP task or the
-         data contained an error and was discarded.  Give the descriptor
-         back to the DMA. */
-
-        //reset the StatusInfo and HashCRC
-        xDMARxStatuses[ consumeIdx ].StatusInfo = 0xFFFFFFFF;
-        xDMARxStatuses[ consumeIdx ].StatusHashCRC = 0xFFFFFFFF;
-        
-        Chip_ENET_IncRXConsumeIndex(LPC_ETHERNET); //Update consume index
-
+            iptraceETHERNET_RX_EVENT_LOST();
+        }
     }
-    else{
+    /* Got here because received data was sent to the IP task or the
+     data contained an error and was discarded.  Give the descriptor
+     back to the DMA. */
 
-    }
+    //reset the StatusInfo and HashCRC
+    xDMARxStatuses[ consumeIdx ].StatusInfo = 0xFFFFFFFF;
+    xDMARxStatuses[ consumeIdx ].StatusHashCRC = 0xFFFFFFFF;
 
-	return xResult;
+    Chip_ENET_IncRXConsumeIndex(LPC_ETHERNET); //Update consume index
+
+	return xReturn;
 }
 /*-----------------------------------------------------------*/
+
+
+//Checks if a frame has errors or should be processed by the IPStack. If not the frame is dropped.
+static inline bool processFrame()
+{
+
+    const uint16_t consumeIdx = Chip_ENET_GetRXConsumeIndex(LPC_ETHERNET);
+    const uint32_t ulStatus = xDMARxStatuses[ consumeIdx ].StatusInfo;
+
+    if( ( ulStatus & nwRX_STATUS_ERROR_BITS ) != 0 )
+    {
+        //Packet has errors, will be dropped
+        #if defined(COLLECT_NETDRIVER_ERROR_STATS)
+            if(ulStatus & ENET_RINFO_CRC_ERR ) numNetworkCRCErrors++;
+            if(ulStatus & ENET_RINFO_SYM_ERR ) numNetworkSYMErrors++;
+            if(ulStatus & ENET_RINFO_LEN_ERR ) numNetworkLENErrors++;
+            if(ulStatus & ENET_RINFO_ALIGN_ERR ) numNetworkALIGNErrors++;
+            if(ulStatus & ENET_RINFO_OVERRUN ) numNetworkOVERRUNErrors++;
+        #endif
+    }
+    else if(ipCONSIDER_FRAME_FOR_PROCESSING( (const uint8_t * const) (xDMARxDescriptors[ consumeIdx ].Packet) ) == eProcessBuffer )
+    {
+        return true; // process this packet
+    }
+
+            
+    //drop the packet. The buffer is already allocated so just increment the consume index to reuse it.
+
+    //reset descriptors StatusInfo and HashCRC
+    xDMARxStatuses[ consumeIdx ].StatusInfo = 0xFFFFFFFF;
+    xDMARxStatuses[ consumeIdx ].StatusHashCRC = 0xFFFFFFFF;
+    Chip_ENET_IncRXConsumeIndex(LPC_ETHERNET); //Update consume index
+
+    return false;
+}
+
 
 configPLACE_IN_SECTION_RAM
 void NETWORK_IRQHandler( void )
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    uint32_t ulDMAStatus;
+
     const uint32_t ulRxInterruptMask = ENET_INT_RXDONE | ENET_INT_RXERROR | ENET_INT_RXOVERRUN;   // Receive related interrupt
     const uint32_t ulTxInterruptMask = ENET_INT_TXDONE | ENET_INT_TXERROR | ENET_INT_TXUNDERRUN; // Transmit related interrupt
 
@@ -893,25 +799,40 @@ void NETWORK_IRQHandler( void )
     configASSERT( xRxHanderTask );
 
     /* Get pending interrupts */
-    ulDMAStatus = Chip_ENET_GetIntStatus(LPC_ETHERNET);
+    uint32_t ulDMAStatus = Chip_ENET_GetIntStatus(LPC_ETHERNET);
 
-    
-    if (ulDMAStatus & ENET_INT_RXOVERRUN)
-    {
-        Chip_ENET_RXDisable(LPC_ETHERNET); /* Temporarily disable RX */
-        Chip_ENET_ResetRXLogic(LPC_ETHERNET); /* Reset the RX side */
-        Chip_ENET_RXEnable(LPC_ETHERNET);
-# if defined(COLLECT_NETDRIVER_ERROR_STATS)
-        numNetworkRXIntOverrunErrors++;
-#endif
-    }
-
-    
     /* RX group interrupt(s). */
     if( ( ulDMAStatus & ulRxInterruptMask ) != 0x00 )
     {
-        ulISREvents |= EMAC_IF_RX_EVENT; /* Remember that an RX event has happened. */
-        vTaskNotifyGiveFromISR( xRxHanderTask, &xHigherPriorityTaskWoken );
+        uint16_t consumeIndex = Chip_ENET_GetRXConsumeIndex(LPC_ETHERNET);
+        const uint16_t produceIndex = Chip_ENET_GetRXProduceIndex(LPC_ETHERNET);
+        const uint16_t pending = Chip_ENET_GetFillDescNum(LPC_ETHERNET, produceIndex, consumeIndex, configNUM_TX_DESCRIPTORS);
+
+        if (ulDMAStatus & ENET_INT_RXOVERRUN)
+        {
+            Chip_ENET_RXDisable(LPC_ETHERNET); /* Temporarily disable RX */
+            Chip_ENET_ResetRXLogic(LPC_ETHERNET); /* Reset the RX side */
+            
+            for(uint8_t i=0; i<pending; i++)
+            {
+                //clear out pending
+                consumeIndex = Chip_ENET_GetRXConsumeIndex(LPC_ETHERNET);
+                xDMARxStatuses[ consumeIndex ].StatusInfo = 0xFFFFFFFF;
+                xDMARxStatuses[ consumeIndex ].StatusHashCRC = 0xFFFFFFFF;
+                Chip_ENET_IncRXConsumeIndex(LPC_ETHERNET); //Update consume index
+            }
+
+            Chip_ENET_RXEnable(LPC_ETHERNET);
+            
+            # if defined(COLLECT_NETDRIVER_ERROR_STATS)
+                numNetworkRXIntOverrunErrors++;
+            #endif
+        }
+        else
+        {
+            ulISREvents |= EMAC_IF_RX_EVENT; /* Remember that an RX event has happened. */
+            vTaskNotifyGiveFromISR( xRxHanderTask, &xHigherPriorityTaskWoken );
+        }
     }
 
     /* TX group interrupt(s). */
@@ -929,16 +850,36 @@ void NETWORK_IRQHandler( void )
 }
 /*-----------------------------------------------------------*/
 
+static void updateLinkSpeed(uint32_t ulPhyStatus)
+{
+    /* Set interface speed and duplex. */
+    if( ( ulPhyStatus & PHY_LINK_SPEED100 ) != 0x00 )
+    {
+        Chip_ENET_Set100Mbps( LPC_ETHERNET );
+    }
+    else
+    {
+        Chip_ENET_Set10Mbps( LPC_ETHERNET );
+    }
+
+    if( ( ulPhyStatus & PHY_LINK_FULLDUPLX ) != 0x00 )
+    {
+        Chip_ENET_SetFullDuplex( LPC_ETHERNET );
+    }
+    else
+    {
+        Chip_ENET_SetHalfDuplex( LPC_ETHERNET );
+    }
+}
+
 static BaseType_t prvSetLinkSpeed( void )
 {
-BaseType_t xReturn = pdFAIL;
-TickType_t xTimeOnEntering;
-uint32_t ulPhyStatus;
-const TickType_t xAutoNegotiateDelay = pdMS_TO_TICKS( 5000UL );
+    BaseType_t xReturn = pdFAIL;
+    TickType_t xTimeOnEntering;
+    uint32_t ulPhyStatus;
+    const TickType_t xAutoNegotiateDelay = pdMS_TO_TICKS( 5000UL );
 
-
-    
-	/* Ensure polling does not starve lower priority tasks by temporarily
+    /* Ensure polling does not starve lower priority tasks by temporarily
 	setting the priority of this task to that of the idle task. */
     //vTaskPrioritySet( NULL, tskIDLE_PRIORITY );
     vTaskPrioritySet( NULL, tskIDLE_PRIORITY+1 );// IDLE is never called so idle + 1
@@ -951,25 +892,8 @@ const TickType_t xAutoNegotiateDelay = pdMS_TO_TICKS( 5000UL );
 
 		if( ( ulPhyStatus & PHY_LINK_CONNECTED ) != 0x00 )
 		{
-			/* Set interface speed and duplex. */
-			if( ( ulPhyStatus & PHY_LINK_SPEED100 ) != 0x00 )
-			{
-                Chip_ENET_Set100Mbps( LPC_ETHERNET );
-			}
-			else
-			{
-                Chip_ENET_Set10Mbps( LPC_ETHERNET );
-			}
-
-			if( ( ulPhyStatus & PHY_LINK_FULLDUPLX ) != 0x00 )
-			{
-                Chip_ENET_SetFullDuplex( LPC_ETHERNET );
-			}
-			else
-			{
-                Chip_ENET_SetHalfDuplex( LPC_ETHERNET );
-			}
-
+            ulPHYLinkStatus = ulPhyStatus;
+            updateLinkSpeed(ulPhyStatus);
 			xReturn = pdPASS;
 			break;
         } else {
@@ -983,101 +907,13 @@ const TickType_t xAutoNegotiateDelay = pdMS_TO_TICKS( 5000UL );
 	return xReturn;
 }
 
-/*********************************************************************
- From lpc17xx_emac.c
-
- * @brief        Calculates CRC code for number of bytes in the frame
-* @param[in]    frame_no_fcs    Pointer to the first byte of the frame
-* @param[in]    frame_len        length of the frame without the FCS
-* @return        the CRC as a 32 bit integer
-**********************************************************************/
-static int32_t emac_CRCCalc(const uint8_t frame_no_fcs[], int32_t frame_len)
-{
-    int i;         // iterator
-    int j;         // another iterator
-    char byte;     // current byte
-    int crc;     // CRC result
-    int q0, q1, q2, q3; // temporary variables
-    crc = 0xFFFFFFFF;
-    for (i = 0; i < frame_len; i++) {
-        byte = *frame_no_fcs++;
-        for (j = 0; j < 2; j++) {
-            if (((crc >> 28) ^ (byte >> 3)) & 0x00000001) {
-                q3 = 0x04C11DB7;
-            } else {
-                q3 = 0x00000000;
-            }
-            if (((crc >> 29) ^ (byte >> 2)) & 0x00000001) {
-                q2 = 0x09823B6E;
-            } else {
-                q2 = 0x00000000;
-            }
-            if (((crc >> 30) ^ (byte >> 1)) & 0x00000001) {
-                q1 = 0x130476DC;
-            } else {
-                q1 = 0x00000000;
-            }
-            if (((crc >> 31) ^ (byte >> 0)) & 0x00000001) {
-                q0 = 0x2608EDB8;
-            } else {
-                q0 = 0x00000000;
-            }
-            crc = (crc << 4) ^ q3 ^ q2 ^ q1 ^ q0;
-            byte >>= 4;
-        }
-    }
-    return crc;
-}
-/*********************************************************************
- 
- From lpc17xx_emac.c
- 
-    * @brief        Enable hash filter functionality for specified destination
-    *               MAC address in EMAC module
-    * @param[in]    dstMAC_addr        Pointer to the first MAC destination address, should
-    *                                  be 6-bytes length, in order LSB to the MSB
-    * @return        None
-    *
-    * Note:
-    * The standard Ethernet cyclic redundancy check (CRC) function is calculated from
-    * the 6 byte destination address in the Ethernet frame (this CRC is calculated
-    * anyway as part of calculating the CRC of the whole frame), then bits [28:23] out of
-    * the 32 bits CRC result are taken to form the hash. The 6 bit hash is used to access
-    * the hash table: it is used as an index in the 64 bit HashFilter register that has been
-    * programmed with accept values. If the selected accept value is 1, the frame is
-    * accepted.
-    **********************************************************************/
-void EMAC_SetHashFilter(const uint8_t dstMAC_addr[])
-{
-    uint32_t tmp;
-    int32_t crc;
-    
-    // Calculate the CRC from the destination MAC address
-    crc = emac_CRCCalc(dstMAC_addr, 6);
-    // Extract the value from CRC to get index value for hash filter table
-    crc = (crc >> 23) & 0x3F;
-    tmp = (crc > 31) ? (crc - 32) : crc;
-    
-    if(crc > 31)
-    {
-        LPC_ETHERNET->RXFILTER.HashFilterH |= (1UL << tmp);
-    }
-    else
-    {
-        LPC_ETHERNET->RXFILTER.HashFilterL |= (1UL << tmp);
-    }
-}
-
 configPLACE_IN_SECTION_RAM
 static void prvEMACHandlerTask( void *pvParameters )
 {
     TimeOut_t xPhyTime;
     TickType_t xPhyRemTime;
-    //UBaseType_t uxLastMinBufferCount = 0;
-    //UBaseType_t uxCurrentCount;
     BaseType_t xResult = 0;
-    uint32_t ulStatus;
-    const TickType_t xBlockTime = pdMS_TO_TICKS( EMAC_MAX_BLOCK_TIME_MS ); //5000
+    const TickType_t xBlockTime = pdMS_TO_TICKS( EMAC_MAX_BLOCK_TIME_MS );
 
     /* Remove compiler warning about unused parameter. */
     ( void ) pvParameters;
@@ -1090,39 +926,36 @@ static void prvEMACHandlerTask( void *pvParameters )
 
     for( ;; )
     {
-        //ulTaskNotifyTake( pdTRUE, xBlockTime );
-        if( ( ulISREvents & EMAC_IF_ALL_EVENT ) == 0 )
-        {
-            /* No events to process now, wait for the next. */
-            ulTaskNotifyTake( pdFALSE, xBlockTime );
-        }
-
-
         xResult = ( BaseType_t ) 0;
-
+        ulTaskNotifyTake( pdFALSE, xBlockTime );
+        
         if( ( ulISREvents & EMAC_IF_TX_EVENT ) != 0 )
         {
-            /* Code to release TX buffers if zero-copy is used. */
             ulISREvents &= ~EMAC_IF_TX_EVENT;
-            {
-                /* Check if DMA packets have been delivered. */
-                vClearTXBuffers();
-            }
+            /* Check if DMA packets have been delivered. */
+            vClearTXBuffers();
         }
 
-        if( ( ulISREvents & EMAC_IF_RX_EVENT ) != 0 )
+        
+        const uint16_t consumeIndex = Chip_ENET_GetRXConsumeIndex(LPC_ETHERNET);
+        const uint16_t produceIndex = Chip_ENET_GetRXProduceIndex(LPC_ETHERNET);
+        const uint16_t pending = Chip_ENET_GetFillDescNum(LPC_ETHERNET, produceIndex, consumeIndex, configNUM_TX_DESCRIPTORS);
+
+        if( ( ulISREvents & EMAC_IF_RX_EVENT ) != 0 || pending > 0 )
         {
             ulISREvents &= ~EMAC_IF_RX_EVENT;
 
-            xResult = prvNetworkInterfaceInput();
-            if( xResult > 0 )
+            for(uint8_t i=0; i<pending; i++)
             {
-                while( prvNetworkInterfaceInput() > 0 )
+                if(processFrame())
                 {
+                    xResult = prvNetworkInterfaceInput();
                 }
             }
         }
 
+        
+        //Check PHY status
         if( xResult > 0 )
         {
             /* A packet was received. No need to check for the PHY status now,
@@ -1133,29 +966,37 @@ static void prvEMACHandlerTask( void *pvParameters )
         }
         else if( xTaskCheckForTimeOut( &xPhyTime, &xPhyRemTime ) != pdFALSE )
         {
-            ulStatus = lpcPHYStsPoll();
+            uint32_t ulStatus = lpcPHYStsPoll();
 
+            //check if the link state has changed
             if( ( ulPHYLinkStatus & PHY_LINK_CONNECTED ) != ( ulStatus & PHY_LINK_CONNECTED ) )
             {
-                ulPHYLinkStatus = ulStatus;
-                
-                if( (ulPHYLinkStatus & PHY_LINK_CONNECTED) == 0 )
+                if( (ulStatus & PHY_LINK_CONNECTED) == 0 )
                 {
                     //lost link, inform IP-Task we lost the network
                     FreeRTOS_NetworkDown();
                 }
+                else
+                {
+                    //link up
+                    updateLinkSpeed(ulStatus);
+                }
             }
-
+            ulPHYLinkStatus = ulStatus;
+            
             vTaskSetTimeOutState( &xPhyTime );
             if( ( ulPHYLinkStatus & PHY_LINK_CONNECTED ) != 0 )
             {
-                xPhyRemTime = pdMS_TO_TICKS( PHY_LS_HIGH_CHECK_TIME_MS );
+                xPhyRemTime = pdMS_TO_TICKS( PHY_LS_HIGH_CHECK_TIME_MS ); //check PHY less often now that the link is up
             }
             else
             {
                 xPhyRemTime = pdMS_TO_TICKS( PHY_LS_LOW_CHECK_TIME_MS );
             }
         }
+        
+        
+        
     }
 }
 
