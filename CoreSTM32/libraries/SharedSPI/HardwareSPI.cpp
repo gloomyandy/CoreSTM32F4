@@ -62,7 +62,6 @@ void HardwareSPI::flushRx() noexcept
 // Disable the device and flush any data from the fifos
 void HardwareSPI::disable() noexcept
 {
-    debugPrintf("spi disable called\n");
     if (initComplete)
     {
         if (usingDma)
@@ -74,22 +73,9 @@ void HardwareSPI::disable() noexcept
 }
 
 // Wait for transmitter empty returning true if timed out
-//static inline bool waitForTxEmpty(LPC_SSP_TypeDef* sspDevice)
 bool HardwareSPI::waitForTxEmpty() noexcept
 {
     return false;
-}
-
-static inline uint32_t getSSPBits(uint8_t bits) noexcept
-{
-
-    return 8;
-}
-
-
-static inline uint32_t getSSPMode(uint8_t spiMode) noexcept
-{
-    return 0;
 }
 
 extern "C" void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) noexcept
@@ -273,6 +259,16 @@ void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t
         debugPrintf("SPI Error %d\n", (int)status);
 }
 
+void HardwareSPI::stopTransfer() noexcept
+{
+    // Stop a DMA transfer.
+    // Note although in theory we could use HAL_SPI_Abort to do this it does not
+    // work because it leaves data in the TX fifo (which will not be clocked out 
+    // because cs is not set). It seems that the only way to flush this fifo is
+    // re-init the device, so we just do that.
+    disable();
+    configureDevice(spi.handle.Init.Mode, curBits, curClockMode, curBitRate, spi.pin_ssel != NoPin);
+}
 
 void HardwareSPI::startTransferAndWait(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept
 {

@@ -28,6 +28,7 @@ public:
     void checkComplete() noexcept;
     void flushRx() noexcept;
     void startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept;
+    void stopTransfer() noexcept;
     void startTransferAndWait(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept;
     static HardwareSPI SSP1;
     static HardwareSPI SSP2;
