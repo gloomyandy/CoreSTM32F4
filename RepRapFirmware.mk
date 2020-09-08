@@ -4,7 +4,7 @@ RRF_SRC_BASE  = $(REPRAPFIRMWARE_DIR)/src
 
 RRF_SRC_DIRS = FilamentMonitors GCodes GCodes/GCodeBuffer Heating 
 RRF_SRC_DIRS += Movement Movement/BedProbing Movement/Kinematics 
-RRF_SRC_DIRS += Storage Libraries/sha1
+RRF_SRC_DIRS += Storage Libraries/sha1 Comms
 RRF_SRC_DIRS += Heating/Sensors Fans ObjectModel Endstops Hardware Hardware/SharedSpi Tools
 RRF_SRC_DIRS += Display Display/ST7920 GPIO
 
@@ -13,9 +13,9 @@ RRF_SRC_DIRS += STM32 STM32/FatFS
 
 #networking support?
 ifeq ($(NETWORKING), true)
-	RRF_SRC_DIRS += Networking STM32/LPCNetworking STM32/STMNetworking/RTOSPlusTCPEthernet
+	RRF_SRC_DIRS += Networking STM32/LPCNetworking STM32/Networking/RTOSPlusTCPEthernet
 else ifeq ($(ESP8266WIFI), true) 
-	RRF_SRC_DIRS += Networking Networking/ESP8266WiFi STM32/STMNetworking/ESP8266WiFi
+	RRF_SRC_DIRS += Networking Networking/ESP8266WiFi STM32/Networking/ESP8266WiFi
 else ifeq ($(SBC), true)
 	RRF_SRC_DIRS += Linux
 	RRF_SRC_DIRS += STM32/NoNetwork

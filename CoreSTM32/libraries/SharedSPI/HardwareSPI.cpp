@@ -198,30 +198,6 @@ HardwareSPI::HardwareSPI() noexcept :initComplete(false)
     curBits = 0xffffffff;
 }
 
-void HardwareSPI::checkComplete() noexcept
-{
-    HAL_SPI_StateTypeDef state = HAL_SPI_GetState(&(spi.handle));
-    if (state != HAL_SPI_STATE_READY)
-    {
-        debugPrintf("SPI not ready %x\n", state);
-    }
-    HAL_DMA_StateTypeDef dmaState = HAL_DMA_GetState(spi.handle.hdmarx);
-    if (dmaState != HAL_DMA_STATE_READY)
-    {
-        debugPrintf("RX DMA not ready %x\n", dmaState);
-    }
-    dmaState = HAL_DMA_GetState(spi.handle.hdmatx);
-    if (dmaState != HAL_DMA_STATE_READY)
-    {
-        debugPrintf("TX DMA not ready %x\n", dmaState);
-    }
-    uint32_t err = HAL_DMA_GetError(spi.handle.hdmarx);
-    if (err != 0)
-        debugPrintf("rx dma error %d\n", (int)err);
-    err = HAL_DMA_GetError(spi.handle.hdmatx);
-    if (err != 0)
-        debugPrintf("tx dma error %d\n", (int)err);
-}
 
 void HardwareSPI::startTransfer(const uint8_t *tx_data, uint8_t *rx_data, size_t len, SPICallbackFunction ioComplete) noexcept
 {
