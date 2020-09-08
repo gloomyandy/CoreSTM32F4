@@ -12,8 +12,8 @@ BUILD ?= Debug
 
 #Enable only one
 #NETWORKING ?= true
-#ESP8266WIFI ?= true
-SBC ?= true
+ESP8266WIFI ?= true
+#SBC ?= true
 
 TMC22XX ?= true
 
@@ -37,10 +37,10 @@ SIZE    = arm-none-eabi-size
 MKDIR = mkdir -p
 
 
-include LPCCore.mk
-include FreeRTOS.mk
-include RRFLibraries.mk
-include RepRapFirmware.mk
+include $(MAKEDIR)/LPCCore.mk
+include $(MAKEDIR)/FreeRTOS.mk
+include $(MAKEDIR)/RRFLibraries.mk
+include $(MAKEDIR)/RepRapFirmware.mk
 
 ifeq ($(BUILD),Debug)
 	DEBUG_FLAGS = -Os -g -DSTM32_DEBUG
@@ -141,7 +141,7 @@ $(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLi
 	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nosys.specs -Xlinker -z -Xlinker muldefs -Os -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/$(CORE)/cores/arduino/syscalls.o $(RRFLIBC_OBJS) -lSTMCore $(RRF_OBJS) -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
 	$(V)$(OBJCOPY) --strip-unneeded -O binary $(BUILD_DIR)/$(OUTPUT_NAME).elf $(BUILD_DIR)/$(OUTPUT_NAME).bin
 	$(V)$(SIZE) $(BUILD_DIR)/$(OUTPUT_NAME).elf
-	-@./staticMemStats.sh $(BUILD_DIR)/$(OUTPUT_NAME).elf
+	-@$(MAKEDIR)/staticMemStats.sh $(BUILD_DIR)/$(OUTPUT_NAME).elf
 	
 $(BUILD_DIR)/%.o: %.c
 	@echo "[$<]"
