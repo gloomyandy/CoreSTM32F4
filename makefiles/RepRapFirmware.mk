@@ -12,11 +12,11 @@ RRF_SRC_DIRS += Display Display/ST7920 GPIO
 RRF_SRC_DIRS += STM32 STM32/FatFS
 
 #networking support?
-ifeq ($(NETWORKING), true)
+ifeq ($(NETWORK), ETHERNET)
 	RRF_SRC_DIRS += Networking STM32/LPCNetworking STM32/Networking/RTOSPlusTCPEthernet
-else ifeq ($(ESP8266WIFI), true) 
+else ifeq ($(NETWORK), ESP8266WIFI) 
 	RRF_SRC_DIRS += Networking Networking/ESP8266WiFi STM32/Networking/ESP8266WiFi
-else ifeq ($(SBC), true)
+else ifeq ($(NETWORK), SBC)
 	RRF_SRC_DIRS += Linux
 	RRF_SRC_DIRS += STM32/NoNetwork
 else
@@ -40,7 +40,7 @@ RRF_INCLUDES = $(addprefix -I, $(RRF_SRC))
 RRF_INCLUDES += -I$(RRF_SRC_BASE)/Libraries/
 
 #If building ESP8266 WIFI we only need to add the include from DuetWifiSocketServer as it has a file needed to compile RRF 
-ifeq ($(ESP8266WIFI), true)
+ifeq ($(NETWORK), ESP8266WIFI)
 	RRF_INCLUDES += -IDuetWiFiSocketServer/src/include
 endif
 

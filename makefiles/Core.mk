@@ -1,4 +1,4 @@
-CORE = $(CORESTM_DIR)
+CORE_DIR = $(CORESTM_DIR)
 
 
 #Core
@@ -17,16 +17,16 @@ CORE_SRC_DIRS += libraries/Wire
 
 #CORE_SRC_DIRS += cores/smoothie
 
-CORE_SRC = $(CORE) $(addprefix $(CORE)/, $(CORE_SRC_DIRS))
+CORE_SRC = $(CORE_DIR) $(addprefix $(CORE_DIR)/, $(CORE_SRC_DIRS))
 CORE_INCLUDES = $(addprefix -I, $(CORE_SRC))
 
 
 #Additional Core Includes
-#CORE_INCLUDES	+= -I$(CORE)/system/ExploreM3_lib/
-#CORE_INCLUDES   += -I$(CORE)/system/CMSIS/CMSIS/Include/
+#CORE_INCLUDES	+= -I$(CORE_DIR)/system/ExploreM3_lib/
+#CORE_INCLUDES   += -I$(CORE_DIR)/system/CMSIS/CMSIS/Include/
 
 #openlpc 
-#CORE_INCLUDES  += -I$(CORE)/cores/lpcopen/inc
+#CORE_INCLUDES  += -I$(CORE_DIR)/cores/lpcopen/inc
 
 #Find all c and c++ files for Core
 CORE_OBJ_SRC_C    += $(foreach src, $(CORE_SRC), $(wildcard $(src)/*.c))

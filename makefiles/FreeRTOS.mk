@@ -45,7 +45,7 @@ RTOSPLUS_CORE_OBJ_SRC_C  += $(foreach src, $(RTOSPLUS_CORE_SRC), $(wildcard $(sr
 #RTOSPLUS_CORE_OBJ_SRC_C  += $(foreach src, $(RTOSPLUS_TCP_NI_SRC), $(wildcard $(src)/*.c) )
 
 
-ifeq ($(NETWORKING), true)
+ifeq ($(NETWORK), ETHERNET)
 	CORE_OBJS += $(patsubst %.c,$(BUILD_DIR)/%.o,$(RTOSPLUS_CORE_OBJ_SRC_C))
 	#RTOS+TCP Includes
 	CORE_INCLUDES   += -I$(RTOSPLUS_TCP_INCLUDE) -I$(RTOSPLUS_TCP_INCLUDE)	

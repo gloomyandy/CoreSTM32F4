@@ -8,19 +8,15 @@ RRFLIBRARIES_DIR ?= ./RRFLibraries
 CORESTM_DIR ?= ./CoreSTM32
 
 BUILD ?= Debug
-#BUILD ?= Release
 
-#Enable only one
-#NETWORKING ?= true
-ESP8266WIFI ?= true
-#SBC ?= true
+NETWORK ?= ESP8266WIFI
 
 TMC22XX ?= true
 
 #Comment out to show compilation commands (verbose)
 V=@
 
-$(info Building RepRapFirmware for LPC1768/1769 based boards:)
+$(info Building RepRapFirmware for STM32F4 based boards:)
 
 OUTPUT_NAME=firmware
 
@@ -36,11 +32,11 @@ SIZE    = arm-none-eabi-size
 
 MKDIR = mkdir -p
 
-
-include $(MAKEDIR)/LPCCore.mk
-include $(MAKEDIR)/FreeRTOS.mk
-include $(MAKEDIR)/RRFLibraries.mk
-include $(MAKEDIR)/RepRapFirmware.mk
+$(info  - MAKE_DIR: $(MAKE_DIR))
+include $(MAKE_DIR)/Core.mk
+include $(MAKE_DIR)/FreeRTOS.mk
+include $(MAKE_DIR)/RRFLibraries.mk
+include $(MAKE_DIR)/RepRapFirmware.mk
 
 ifeq ($(BUILD),Debug)
 	DEBUG_FLAGS = -Os -g -DSTM32_DEBUG
@@ -52,7 +48,7 @@ endif
 	
 
 #Linker script to avoid built in Bootloader
-LINKER_SCRIPT_BASE = $(CORE)/variants/BIGTREE_SKR_PRO_1v1/ldscript
+LINKER_SCRIPT_BASE = $(CORE_DIR)/variants/BIGTREE_SKR_PRO_1v1/ldscript
 
 
 
@@ -79,13 +75,13 @@ FLAGS += -nostdlib -Wdouble-promotion -fsingle-precision-constant -fstack-usage
 FLAGS += $(DEBUG_FLAGS)
 FLAGS += -MMD -MP 
 
-ifeq ($(NETWORKING), true)
+ifeq ($(NETWORK), ETHERNET)
         $(info  - Networking: Ethernet)
         FLAGS += -DLPC_NETWORKING
-else ifeq ($(ESP8266WIFI), true)
+else ifeq ($(NETWORK), ESP8266WIFI)
         $(info  - Networking: ESP8266 WIFI) 
         FLAGS += -DESP8266WIFI
-else ifeq ($(SBC), true)
+else ifeq ($(NETWORK), SBC)
         $(info  - SBC Interface Enabled)
         FLAGS += -DLPC_SBC
 else
@@ -133,15 +129,15 @@ $(BUILD_DIR)/libRRFLibraries.a: $(RRFLIBRARIES_OBJS)
 	@echo "\nBuilt RRF Libraries\n"
 
 #$(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/src/CoreMain.o $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLibraries.a $(RRFLIBC_OBJS)
-#	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nano.specs -Os -Wl,--warn-section-align -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-section-align -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/src/CoreMain.o -lSTMCore -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
+#	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE_DIR)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE_DIR)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nano.specs -Os -Wl,--warn-section-align -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-section-align -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/src/CoreMain.o -lSTMCore -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
 
 $(BUILD_DIR)/$(OUTPUT_NAME).elf: $(BUILD_DIR)/libSTMCore.a $(BUILD_DIR)/libRRFLibraries.a $(RRFLIBC_OBJS) $(RRF_OBJS)
 	@echo "\nCreating $(OUTPUT_NAME).bin"
 	$(V)$(MKDIR) $(dir $@)
-	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nosys.specs -Xlinker -z -Xlinker muldefs -Os -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/$(CORE)/cores/arduino/syscalls.o $(RRFLIBC_OBJS) -lSTMCore $(RRF_OBJS) -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
+	$(V)$(LD) -L$(BUILD_DIR)/ -L$(CORE_DIR)/variants/BIGTREE_SKR_PRO_1v1/ -L$(CORE_DIR)/CMSIS/CMSIS/DSP/Lib/GCC --specs=nosys.specs -Xlinker -z -Xlinker muldefs -Os -Wl,--fatal-warnings -fmerge-all-constants -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mcpu=cortex-m4 -mthumb -T$(LINKER_SCRIPT) -Wl,-Map,$(BUILD_DIR)/$(OUTPUT_NAME).map -o $(BUILD_DIR)/$(OUTPUT_NAME).elf -Wl,--cref -Wl,--check-sections -Wl,--gc-sections,--relax -Wl,--entry=Reset_Handler -Wl,--unresolved-symbols=report-all -Wl,--warn-common -Wl,--warn-unresolved-symbols -Wl,--defsym=LD_MAX_SIZE=1048576 -Wl,--defsym=LD_MAX_DATA_SIZE=196608 -Wl,--defsym=LD_FLASH_OFFSET=0x0 -Wl,--start-group $(BUILD_DIR)/$(CORE_DIR)/cores/arduino/syscalls.o $(RRFLIBC_OBJS) -lSTMCore $(RRF_OBJS) -lRRFLibraries -larm_cortexM4l_math -lc -lm -lgcc -lstdc++ -Wl,--end-group
 	$(V)$(OBJCOPY) --strip-unneeded -O binary $(BUILD_DIR)/$(OUTPUT_NAME).elf $(BUILD_DIR)/$(OUTPUT_NAME).bin
 	$(V)$(SIZE) $(BUILD_DIR)/$(OUTPUT_NAME).elf
-	-@$(MAKEDIR)/staticMemStats.sh $(BUILD_DIR)/$(OUTPUT_NAME).elf
+	-@$(MAKE_DIR)/staticMemStats.sh $(BUILD_DIR)/$(OUTPUT_NAME).elf
 	
 $(BUILD_DIR)/%.o: %.c
 	@echo "[$<]"
