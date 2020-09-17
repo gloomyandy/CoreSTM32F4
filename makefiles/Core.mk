@@ -32,4 +32,4 @@ CORE_INCLUDES = $(addprefix -I, $(CORE_SRC))
 CORE_OBJ_SRC_C    += $(foreach src, $(CORE_SRC), $(wildcard $(src)/*.c))
 CORE_OBJ_SRC_CXX   += $(foreach src, $(CORE_SRC), $(wildcard $(src)/*.cpp))
 CORE_OBJS = $(patsubst %.c,$(BUILD_DIR)/%.o,$(CORE_OBJ_SRC_C)) $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(CORE_OBJ_SRC_CXX))
-CORE_OBJS += $(BUILD_DIR)/CoreSTM32/cores/arduino/stm32/startup_stm32yyxx.o
+CORE_OBJS += $(BUILD_DIR)/CoreSTM32F4/cores/arduino/stm32/startup_stm32yyxx.o

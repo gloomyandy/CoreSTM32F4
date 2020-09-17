@@ -5,7 +5,7 @@ BUILD_DIR ?= ./build
 FREERTOS_DIR ?= ./FreeRTOS
 REPRAPFIRMWARE_DIR ?= ./RepRapFirmware
 RRFLIBRARIES_DIR ?= ./RRFLibraries
-CORESTM_DIR ?= ./CoreSTM32
+CORESTM_DIR ?= ./CoreSTM32F4
 
 BUILD ?= Debug
 
