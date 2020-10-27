@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#if 0
 char *dtostrf(double val, signed char width, unsigned char prec, char *sout)
 {
   //Commented code is the original version
@@ -92,3 +92,4 @@ char *dtostrf(double val, signed char width, unsigned char prec, char *sout)
 
   return sout;
 }
+#endif

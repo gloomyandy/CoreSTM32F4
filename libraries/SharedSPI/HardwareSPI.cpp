@@ -41,17 +41,11 @@ static inline void flushTxFifo(SPI_HandleTypeDef *sspDevice) noexcept
 
 static inline void flushRxFifo(SPI_HandleTypeDef *hspi) noexcept
 {
-    uint8_t dummy;
-    int cnt = 0;
     while (__HAL_SPI_GET_FLAG(hspi, SPI_FLAG_RXNE))
     {
         /* read the received data */
-        dummy = *(__IO uint8_t *)&hspi->Instance->DR;
-        cnt++;
+        (void)*(__IO uint8_t *)&hspi->Instance->DR;
     }
-    //if (cnt > 0)
-        //debugPrintf("Flushed cnt %d\n", cnt);
-
 }
 
 void HardwareSPI::flushRx() noexcept
