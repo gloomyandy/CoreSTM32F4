@@ -8,8 +8,8 @@ RRF_SRC_DIRS += Storage Libraries/sha1 Comms
 RRF_SRC_DIRS += Heating/Sensors Fans ObjectModel Endstops Hardware Hardware/SharedSpi Tools
 RRF_SRC_DIRS += Display Display/ST7920 GPIO
 
-#LPC RRF Addons
-RRF_SRC_DIRS += targets/STM32 targets/common targets/STM32/FatFS targets/common/FatFS
+#STM RRF Addons
+RRF_SRC_DIRS += targets/STM32 targets/common targets/STM32/FatFS targets/common/FatFS targets/common/Fans
 
 #networking support?
 ifeq ($(NETWORK), ETHERNET)

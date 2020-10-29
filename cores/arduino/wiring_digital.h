@@ -18,6 +18,8 @@
 
 #ifndef _WIRING_DIGITAL_
 #define _WIRING_DIGITAL_
+#include <pins_arduino.h>
+#include <digital_io.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +84,28 @@ extern int digitalRead(Pin ulPin) ;
 extern void digitalToggle(Pin ulPin) ;
 
 extern void setPullup(Pin pin, bool en) ;
+
+// Set a pin high with no error checking
+#ifdef __cplusplus
+[[gnu::always_inline, gnu::optimize("O3")]] inline void fastDigitalWriteHigh(const Pin pin) noexcept
+#else
+inline void fastDigitalWriteHigh(const Pin pin) noexcept
+#endif
+{
+	WRITE_REG(GPIOPort[STM_PORT(pin)]->BSRR, STM_GPIO_PIN(pin));
+}
+
+// Set a pin low with no error checking
+#ifdef __cplusplus
+[[gnu::always_inline, gnu::optimize("O3")]] inline void fastDigitalWriteLow(const Pin pin) noexcept
+#else
+inline void fastDigitalWriteLow(const Pin pin) noexcept
+#endif
+{
+	WRITE_REG(GPIOPort[STM_PORT(pin)]->BSRR, STM_GPIO_PIN(pin) << 16);
+}
+
+
 
 #ifdef __cplusplus
 }
