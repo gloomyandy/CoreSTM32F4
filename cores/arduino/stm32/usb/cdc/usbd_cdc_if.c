@@ -253,6 +253,7 @@ void CDC_init(void)
 {
   if (!CDC_initialized) {
     /* Init Device Library */
+    hUSBD_Device_CDC.pPreAllocatedClassData = USBD_malloc(sizeof(USBD_CDC_HandleTypeDef));
     if (USBD_Init(&hUSBD_Device_CDC, &USBD_Desc, 0) == USBD_OK) {
       /* Add Supported Class */
       if (USBD_RegisterClass(&hUSBD_Device_CDC, USBD_CDC_CLASS) == USBD_OK) {
@@ -273,6 +274,8 @@ void CDC_deInit(void)
     USBD_Stop(&hUSBD_Device_CDC);
     USBD_CDC_DeInit();
     USBD_DeInit(&hUSBD_Device_CDC);
+    if (hUSBD_Device_CDC.pPreAllocatedClassData != NULL)
+      USBD_free(hUSBD_Device_CDC.pPreAllocatedClassData);
     CDC_initialized = false;
   }
 }

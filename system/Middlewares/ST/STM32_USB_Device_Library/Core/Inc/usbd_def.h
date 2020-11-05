@@ -258,6 +258,7 @@ typedef struct _USBD_HandleTypeDef
   void                    *pClassData;
   void                    *pUserData;
   void                    *pData;
+  void                    *pPreAllocatedClassData;
 } USBD_HandleTypeDef;
 
 /**
