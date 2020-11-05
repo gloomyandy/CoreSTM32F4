@@ -161,6 +161,10 @@ extern const PinDescription g_APinDescription[];
 #define SAME70	0
 #define SAME5x  0
 #define SAMC21  0
+
+// Space reserved for Handler stack in bytes
+#define SystemStackSize (1024)
+
 #include "wiring.h"
 #include "wiring_digital.h"
 #include "watchdog.h"

@@ -9,9 +9,12 @@
 #if defined (  __GNUC__  ) /* GCC CS3 */
 #include <sys/stat.h>
 #endif
+#include "Core.h"
 #include <errno.h>
 #undef errno
 extern int errno;
+extern int  _end ;
+extern char _estack;
 
 extern size_t uart_debug_write(uint8_t *data, uint32_t size);
 
@@ -26,63 +29,55 @@ extern size_t uart_debug_write(uint8_t *data, uint32_t size);
 #define UNUSED(x) x ## _UNUSED
 #endif
 
-__attribute__((weak))
-caddr_t _sbrk(int incr)
+void OutOfMemoryHandler() noexcept;
+
+char *heapTop = (char *)&_end;
+const char *heapLimit = &_estack - SystemStackSize;
+
+extern "C" __attribute__((weak)) caddr_t _sbrk(ptrdiff_t incr) noexcept
 {
-  extern char _estack; /* Defined in the linker script */
-  extern char _Min_Stack_Size; /* Defined in the linker script */
-  extern char _end; /* Defined by the linker */
-  static char *heap_end = &_end ;
-  char *prev_heap_end = heap_end;
+	char *newHeap = heapTop + incr;
+	if (newHeap <= heapLimit)
+	{
+		void *prev_heap = heapTop;
+		heapTop = newHeap;
+		return (caddr_t) prev_heap;
+	}
 
-  if (heap_end + incr > (char *)__get_MSP()) {
-    /* Heap and stack collision */
-    errno = ENOMEM;
-    return (caddr_t) -1;
-  }
-  /* Ensure to keep minimun stack size defined in the linker script */
-  if (heap_end + incr >= (char *)(&_estack - &_Min_Stack_Size)) {
-    errno = ENOMEM;
-    return (caddr_t) -1;
-  }
+	OutOfMemoryHandler();
 
-  heap_end += incr ;
-  return (caddr_t) prev_heap_end ;
+	// The out of memory handle usually terminates, but in case it doesn't, try to return failure. Unfortunately, this doesn't seem to work with newlib.
+	errno = ENOMEM;
+	return (caddr_t)(-1);
 }
 
-__attribute__((weak))
-int _close(UNUSED(int file))
+extern "C" __attribute__((weak)) int _close(UNUSED(int file))
 {
   return -1;
 }
 
-__attribute__((weak))
-int _fstat(UNUSED(int file), struct stat *st)
+extern "C" __attribute__((weak)) int _fstat(UNUSED(int file), struct stat *st)
 {
   st->st_mode = S_IFCHR ;
   return 0;
 }
 
-__attribute__((weak))
-int _isatty(UNUSED(int file))
+extern "C" __attribute__((weak)) int _isatty(UNUSED(int file))
 {
   return 1;
 }
 
-__attribute__((weak))
-int _lseek(UNUSED(int file), UNUSED(int ptr), UNUSED(int dir))
+extern "C" __attribute__((weak)) int _lseek(UNUSED(int file), UNUSED(int ptr), UNUSED(int dir))
 {
   return 0;
 }
 
-__attribute__((weak))
-int _read(UNUSED(int file), UNUSED(char *ptr), UNUSED(int len))
+extern "C" __attribute__((weak)) int _read(UNUSED(int file), UNUSED(char *ptr), UNUSED(int len))
 {
   return 0;
 }
 
-__attribute__((weak))
-int _write(UNUSED(int file), char *ptr, int len)
+extern "C" __attribute__((weak)) int _write(UNUSED(int file), char *ptr, int len)
 {
 #ifdef HAL_UART_MODULE_ENABLED
   return uart_debug_write((uint8_t *)ptr, (uint32_t)len);
@@ -92,21 +87,18 @@ int _write(UNUSED(int file), char *ptr, int len)
 #endif
 }
 
-__attribute__((weak))
-void _exit(UNUSED(int status))
+extern "C" __attribute__((weak)) void _exit(UNUSED(int status))
 {
   for (; ;) ;
 }
 
-__attribute__((weak))
-int _kill(UNUSED(int pid), UNUSED(int sig))
+extern "C" __attribute__((weak)) int _kill(UNUSED(int pid), UNUSED(int sig))
 {
   errno = EINVAL;
   return -1;
 }
 
-__attribute__((weak))
-int _getpid(void)
+extern "C" __attribute__((weak)) int _getpid(void)
 {
   return 1;
 }
