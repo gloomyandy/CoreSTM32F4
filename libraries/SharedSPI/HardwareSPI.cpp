@@ -236,8 +236,11 @@ void HardwareSPI::stopTransfer() noexcept
     // work because it leaves data in the TX fifo (which will not be clocked out 
     // because cs is not set). It seems that the only way to flush this fifo is
     // re-init the device, so we just do that.
-    disable();
-    configureDevice(spi.handle.Init.Mode, curBits, curClockMode, curBitRate, spi.pin_ssel != NoPin);
+    if (initComplete)
+    {
+        disable();
+        configureDevice(spi.handle.Init.Mode, curBits, curClockMode, curBitRate, spi.pin_ssel != NoPin);
+    }
 }
 
 void HardwareSPI::startTransferAndWait(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept
