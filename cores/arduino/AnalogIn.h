@@ -17,7 +17,9 @@ void AnalogInInit() noexcept;
 void AnalogInEnableChannel(AnalogChannelNumber channel, bool enable) noexcept;
 
 // Return the number of bits provided by a call to AnalogInReadChannel
-static constexpr unsigned int AdcBits = ADC_RESOLUTION;
+//static constexpr unsigned int AdcBits = ADC_RESOLUTION;
+// Hardware is 12bit we oversample up to 14
+static constexpr unsigned int AdcBits = 14;
 
 // Read the most recent result from a channel
 uint16_t AnalogInReadChannel(AnalogChannelNumber channel) noexcept;

@@ -7,8 +7,14 @@
 
 /*
 Read ADC values. We configure things so that the selected channels are constantly being converted.
-Only those channels attached to ADC3 plus a single specual case of the MCU temperature device on
+Only those channels attached to ADC1 and ADC3 plus a single specual case of the MCU temperature device on
 ADC1 are currently supported.
+
+Sample timing
+We sample continuously up to 16 channels per ADC. We set the ADC clock to APB2/8 and sample each channel for 480 cycles
+the conversion time is 12 cycles. This gives a per channel time of...
+(480+12)/(84/8) uS = 47uS
+Total time for for 16 channels 47*16 = 750uS or approx 1333 full samples per second.
 */
 #include "Core.h"
 #include "AnalogIn.h"
@@ -16,16 +22,22 @@ ADC1 are currently supported.
 
 extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
+constexpr uint32_t NumADCs = 3;                          // Max supported ADCs
+constexpr uint32_t OversampleBits = 2;                   // Number of extra bit of resolution
+constexpr uint32_t Oversample = 16;                      // 4^OversampleBits
+constexpr uint32_t MaxActiveChannels = 16;               // Max active ADC channels
+constexpr uint32_t NumChannelsADC1 = ADC_CHANNEL_TEMPSENSOR+1;
+constexpr uint32_t NumChannelsADC3 = 16;
 constexpr AnalogChannelNumber ADC_1 = 0x10000;
 constexpr AnalogChannelNumber ADC_2 = 0x20000;
 constexpr AnalogChannelNumber ADC_3 = 0x30000;
+constexpr uint32_t NumChannels[NumADCs+1] = {0, NumChannelsADC1, 0, NumChannelsADC3};
 
-constexpr uint32_t NumChannels3 = 16; 	// 16 standard chans
-constexpr uint32_t NumChannels1 = ADC_CHANNEL_TEMPSENSOR+1; 	// 16 standard chans + extra for MCU temp etc
-static int32_t ChanMap1[NumChannels1];
-static uint32_t ChanValues1[NumChannels1];
-static int32_t ChanMap3[NumChannels3];
-static uint32_t ChanValues3[NumChannels3];
+static int32_t ChanMap1[NumChannelsADC1];
+static int32_t ChanMap3[NumChannelsADC3];
+static uint32_t ChanValues[MaxActiveChannels*Oversample];
+static constexpr int32_t *ChanMap[NumADCs+1] = {nullptr, ChanMap1, nullptr, ChanMap3};
+static uint8_t NumActiveChannels[NumADCs+1] = {0, 0, 0, 0};
 static bool Adc1Running = false;
 static bool Adc3Running = false;
 
@@ -54,7 +66,6 @@ static AnalogChannelNumber GetAdcChannel(PinName pin)
         return (ADC_3 | STM_PIN_CHANNEL(function));
     else
     {
-        debugPrintf("Unknown ADC device for pin %d\n", static_cast<int>(pin));
         return NO_ADC;
     }
 }
@@ -278,7 +289,7 @@ static void ConfigureAdc(ADC_HandleTypeDef& AdcHandle, ADC_TypeDef *inst, uint32
     AdcHandle.Init.ClockPrescaler        = ADC_CLOCK_SYNC_PCLK_DIV8;      /* (A)synchronous clock mode, input ADC clock divided */
     AdcHandle.Init.Resolution            = ADC_RESOLUTION_12B;            /* 12-bit resolution for converted data */
     AdcHandle.Init.DataAlign             = ADC_DATAALIGN_RIGHT;           /* Right-alignment for converted data */
-    AdcHandle.Init.ScanConvMode          = ENABLE;                        /* Sequencer disabled (ADC conversion on only 1 channel: channel set on rank 1) */
+    AdcHandle.Init.ScanConvMode          = ENABLE;                        /* Sequencer Enabled */
     AdcHandle.Init.EOCSelection          = DISABLE;                       /* EOC flag picked-up to indicate conversion end */
 #if !defined(STM32F1xx) && !defined(STM32F2xx) && !defined(STM32F4xx) && \
     !defined(STM32F7xx) && !defined(STM32F373xC) && !defined(STM32F378xx)
@@ -292,24 +303,23 @@ static void ConfigureAdc(ADC_HandleTypeDef& AdcHandle, ADC_TypeDef *inst, uint32
 #ifdef ADC_CHANNELS_BANK_A
     AdcHandle.Init.ChannelsBank          = ADC_CHANNELS_BANK_A;
 #endif
-    AdcHandle.Init.ContinuousConvMode    = ENABLE;                        /* Continuous mode disabled to have only 1 conversion at each conversion trig */
+    AdcHandle.Init.ContinuousConvMode    = ENABLE;                        /* Continuous mode enabled */
 #if !defined(STM32F0xx) && !defined(STM32L0xx)
     AdcHandle.Init.NbrOfConversion       = chanCount;                     /* Specifies the number of ranks that will be converted within the regular group sequencer. */
 #endif
-    AdcHandle.Init.DiscontinuousConvMode = DISABLE;                       /* Parameter discarded because sequencer is disabled */
+    AdcHandle.Init.DiscontinuousConvMode = DISABLE;                       /* Disable discontinuous mode */
 #if !defined(STM32F0xx) && !defined(STM32G0xx) && !defined(STM32L0xx)
-    AdcHandle.Init.NbrOfDiscConversion   = 0;                             /* Parameter discarded because sequencer is disabled */
+    AdcHandle.Init.NbrOfDiscConversion   = 0;                             
 #endif
     AdcHandle.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
     AdcHandle.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T1_CC1;
 
-    //Adc3Handle.Init.ExternalTrigConv      = ADC_SOFTWARE_START;            /* Software start to trig the 1st conversion manually, without external event */
 #if !defined(STM32F1xx)
-    //Adc3Handle.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE; /* Parameter discarded because software trigger chosen */
+    //AdcHandle.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE; /* Parameter discarded because software trigger chosen */
 #endif
 #if !defined(STM32F1xx) && !defined(STM32H7xx) && \
     !defined(STM32F373xC) && !defined(STM32F378xx)
-    AdcHandle.Init.DMAContinuousRequests = ENABLE;                        /* DMA one-shot mode selected (not applied to this example) */
+    AdcHandle.Init.DMAContinuousRequests = ENABLE;                        /* DMA continuous mode enabled */
 #endif
 #ifdef ADC_CONVERSIONDATA_DR
     AdcHandle.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DR;      /* Regular Conversion data stored in DR register only */
@@ -366,7 +376,7 @@ static uint32_t GetActiveChannels(int32_t *cm, uint32_t sz)
     return cnt;
 }
 
-static void AddActiveChannels(ADC_HandleTypeDef& AdcHandle, int32_t *cm, uint32_t sz)
+static uint32_t AddActiveChannels(ADC_HandleTypeDef& AdcHandle, int32_t *cm, uint32_t sz, uint32_t dataOffset)
 {
     ADC_ChannelConfTypeDef  AdcChannelConf = {};
     AdcChannelConf.SamplingTime = ADC_SAMPLETIME_480CYCLES;
@@ -378,12 +388,13 @@ static void AddActiveChannels(ADC_HandleTypeDef& AdcHandle, int32_t *cm, uint32_
         {
             // include this channel
             AdcChannelConf.Channel = i;
-            AdcChannelConf.Rank = sampleOffset+1;
+            AdcChannelConf.Rank = ++sampleOffset;
             HAL_ADC_ConfigChannel(&AdcHandle, &AdcChannelConf);
             // record the location of the sample
-            cm[i] = sampleOffset++;
+            cm[i] = dataOffset++;
         }
     }
+    return dataOffset;
 }
 
 
@@ -404,38 +415,44 @@ static void ConfigureChannels()
         HAL_ADC_Stop_DMA(&Adc1Handle);
         HAL_ADC_DeInit(&Adc1Handle);
     }
-    uint32_t Active3 = GetActiveChannels(ChanMap3, NumChannels3);
+    uint32_t Active3 = GetActiveChannels(ChanMap3, NumChannelsADC3);
+    uint32_t Active1 = GetActiveChannels(ChanMap1, NumChannelsADC1);
+    if (Active3 + Active1 > MaxActiveChannels)
+    {
+        debugPrintf("Too many active ADC channels\n");
+        return;
+    }
     if (Active3 > 0)
     {
         __HAL_RCC_ADC3_CLK_ENABLE();
         // setup the ADC for that number of channels
         ConfigureAdc(Adc3Handle, ADC3, Active3);
-        AddActiveChannels(Adc3Handle, ChanMap3, NumChannels3);
+        AddActiveChannels(Adc3Handle, ChanMap3, NumChannelsADC3, Active1*Oversample);
         // All done restart sampling
-        HAL_ADC_Start_DMA(&Adc3Handle, ChanValues3, Active3);
+        HAL_ADC_Start_DMA(&Adc3Handle, ChanValues + Active1*Oversample, Active3*Oversample);
         Adc3Running = true;
     }
-
-    uint32_t Active1 = GetActiveChannels(ChanMap1, NumChannels1);
+    NumActiveChannels[3] = Active3;
     if (Active1 > 0)
     {
         __HAL_RCC_ADC1_CLK_ENABLE();
         // setup the ADC for that number of channels
         ConfigureAdc(Adc1Handle, ADC1, Active1);
-        AddActiveChannels(Adc1Handle, ChanMap1, NumChannels1);
+        AddActiveChannels(Adc1Handle, ChanMap1, NumChannelsADC1, 0);
         // All done restart sampling
-        HAL_ADC_Start_DMA(&Adc1Handle, ChanValues1, Active1);
+        HAL_ADC_Start_DMA(&Adc1Handle, ChanValues, Active1*Oversample);
         Adc1Running = true;
     }
+    NumActiveChannels[1] = Active1;
 }
 
 // Module initialisation
 void AnalogInInit()
 {
     // Initially no channels are mapped
-    for(uint32_t i = 0; i < NumChannels1; i++)
+    for(uint32_t i = 0; i < NumChannelsADC1; i++)
         ChanMap1[i] = -1;
-    for(uint32_t i = 0; i < NumChannels3; i++)
+    for(uint32_t i = 0; i < NumChannelsADC3; i++)
         ChanMap3[i] = -1;
 
     __HAL_RCC_DMA2_CLK_ENABLE();
@@ -448,29 +465,46 @@ void AnalogInInit()
 // Enable or disable a channel. Use AnalogCheckReady to make sure the ADC is ready before calling this.
 void AnalogInEnableChannel(AnalogChannelNumber channel, bool enable)
 {
-    AnalogChannelNumber AdcNo = (channel & 0xffff0000);
+    if (channel == NO_ADC) 
+    {
+        debugPrintf("Enable bad ADC channel %d\n", static_cast<int>(channel));
+        return;
+    }
+    AnalogChannelNumber AdcNo = (channel >> 16);
     channel &= 0xffff;
-    if (AdcNo == ADC_3 && channel < NumChannels3)
-        ChanMap3[channel] = (enable ? 0 : -1);
-    else if (AdcNo == ADC_1 && channel < NumChannels1)
-        ChanMap1[channel] = (enable ? 0 : -1);
-    else
-        debugPrintf("Bad ADC channel %d\n", static_cast<int>(channel));
+    if (AdcNo > NumADCs || channel >= NumChannels[AdcNo])
+    {
+        debugPrintf("Enable bad ADC channel %d %d\n", static_cast<int>(AdcNo), static_cast<int>(channel));
+        return;
+    }
+    ChanMap[AdcNo][channel] = (enable ? 0 : -1);
     ConfigureChannels();
 }
 
 // Read the most recent 12-bit result from a channel
 uint16_t AnalogInReadChannel(AnalogChannelNumber channel)
 {
-    AnalogChannelNumber AdcNo = (channel & 0xffff0000);
+    if (channel == NO_ADC)
+        return 0;
+    AnalogChannelNumber AdcNo = (channel >> 16);
     channel &= 0xffff;
-    if (AdcNo == ADC_3 && channel < NumChannels3 && ChanMap3[channel] >= 0)
-        return ChanValues3[ChanMap3[channel]];
-    else if (AdcNo == ADC_1 && channel < NumChannels1 && ChanMap1[channel] >= 0)
-        return ChanValues1[ChanMap1[channel]];
-    else
-        debugPrintf("ADC channel not configured %d\n", static_cast<int>(channel));
-    return 0;
+    uint32_t *pSamples;
+    uint32_t step;
+    if (AdcNo > NumADCs || channel >= NumChannels[AdcNo])
+    {
+        debugPrintf("Read bad ADC channel %d %d\n", static_cast<int>(AdcNo), static_cast<int>(channel));
+        return 0;
+    }
+    pSamples = &ChanValues[ChanMap[AdcNo][channel]];
+    step = NumActiveChannels[AdcNo];
+    uint32_t val = 0;
+    for(uint32_t i = 0; i < Oversample; i++)
+    {
+        val += *pSamples;
+        pSamples += step;
+    }
+    // decimate
+    return val >> OversampleBits;
 }
 
 
@@ -505,6 +539,6 @@ AnalogChannelNumber PinToAdcChannel(uint32_t pin)
 // Get the temperature measurement channel
 AnalogChannelNumber GetTemperatureAdcChannel()
 {
-    return (0x10000 | ADC_CHANNEL_TEMPSENSOR);
+    return (ADC_1 | ADC_CHANNEL_TEMPSENSOR);
 }
 // End
