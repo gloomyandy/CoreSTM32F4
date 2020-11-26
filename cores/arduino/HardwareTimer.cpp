@@ -180,7 +180,7 @@ void HardwareTimer::resumeChannel(uint32_t channel)
     if ((channel < (TIMER_CHANNELS + 1)) && (callbacks[channel] != NULL)) {
       // Only channel 1..4 can have interruption
 #if defined(TIM_CCER_CC1NE)
-      if (isComplementaryChannel[channel]) {
+      if (isComplementaryChannel[channel-1]) {
         HAL_TIMEx_PWMN_Start_IT(&(_HardwareTimerObj.handle), timChannel);
       } else
 #endif
@@ -189,7 +189,7 @@ void HardwareTimer::resumeChannel(uint32_t channel)
       }
     } else {
 #if defined(TIM_CCER_CC1NE)
-      if (isComplementaryChannel[channel]) {
+      if (isComplementaryChannel[channel-1]) {
         HAL_TIMEx_PWMN_Start(&(_HardwareTimerObj.handle), timChannel);
       } else
 #endif
@@ -203,7 +203,7 @@ void HardwareTimer::resumeChannel(uint32_t channel)
     if ((channel < (TIMER_CHANNELS + 1)) && (callbacks[channel] != NULL)) {
       // Only channel 1..4 can have interruption
 #if defined(TIM_CCER_CC1NE)
-      if (isComplementaryChannel[channel]) {
+      if (isComplementaryChannel[channel-1]) {
         HAL_TIMEx_OCN_Start_IT(&(_HardwareTimerObj.handle), timChannel);
       } else
 #endif
@@ -212,7 +212,7 @@ void HardwareTimer::resumeChannel(uint32_t channel)
       }
     } else {
 #if defined(TIM_CCER_CC1NE)
-      if (isComplementaryChannel[channel]) {
+      if (isComplementaryChannel[channel-1]) {
         HAL_TIMEx_OCN_Start(&(_HardwareTimerObj.handle), timChannel);
       } else
 #endif
@@ -501,7 +501,7 @@ void HardwareTimer::setMode(uint32_t channel, TimerModes_t mode, PinName pin)
     }
 
 #if defined(TIM_CCER_CC1NE)
-    isComplementaryChannel[channel] = STM_PIN_INVERTED(pinmap_function(pin, PinMap_PWM));
+    isComplementaryChannel[channel-1] = STM_PIN_INVERTED(pinmap_function(pin, PinMap_PWM));
 #endif
   }
 }

@@ -71,6 +71,7 @@ HybridPWMBase *HardwarePWM::allocate(Pin pin, uint32_t freq, float value) noexce
     if (freq != 0)
     {
         // set the hardware up ready to go
+        t->pause();
         t->setMode(chan, TIMER_OUTPUT_COMPARE_PWM1, pin);
         t->setOverflow(freq, HERTZ_FORMAT);
         t->setCaptureCompare(chan, (uint32_t)(value*PWM_MAX_DUTY_CYCLE), RESOLUTION_12B_COMPARE_FORMAT);
