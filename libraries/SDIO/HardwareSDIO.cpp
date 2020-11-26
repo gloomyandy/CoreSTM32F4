@@ -1,5 +1,6 @@
 
 #include "HardwareSDIO.h"
+extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 HardwareSDIO HardwareSDIO::SDIO1;
 
@@ -59,11 +60,34 @@ uint8_t HardwareSDIO::Init(void) noexcept
 uint8_t HardwareSDIO::ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks, uint32_t Timeout) noexcept
 {
   uint8_t sd_state = MSD_OK;
+uint32_t start = millis();
+while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
+{
 
-  if (HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK) {
+}
+if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
+{
+  debugPrintf("Card not ready\n");
+  return MSD_ERROR;
+}
+if (NumOfBlocks > 0)
+{
+  irqflags_t flags = cpu_irq_save();
+  HAL_StatusTypeDef stat = HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout);
+  cpu_irq_restore(flags);
+  if (stat != HAL_OK) {
+    debugPrintf("Read %d len %d error %d\n", ReadAddr, NumOfBlocks, stat);
     sd_state = MSD_ERROR;
   }
-
+}
+else
+{
+  if (HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK) {
+    debugPrintf("Read %d len %d\n", ReadAddr, NumOfBlocks);
+    sd_state = MSD_ERROR;
+  }
+}
+  //debugPrintf("Card state %x\n", HAL_SD_GetCardState(&hsd));
   return sd_state;
 }
 
@@ -78,11 +102,30 @@ uint8_t HardwareSDIO::ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
 uint8_t HardwareSDIO::WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks, uint32_t Timeout) noexcept
 {
   uint8_t sd_state = MSD_OK;
+uint32_t start = millis();
+while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
+{
 
-  if (HAL_SD_WriteBlocks(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout) != HAL_OK) {
+}
+if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
+{
+  debugPrintf("Card not ready\n");
+  return MSD_ERROR;
+}
+if (NumOfBlocks > 0)
+{
+      debugPrintf("Write %d len %d\n", WriteAddr, NumOfBlocks);
+  start=millis();
+  irqflags_t flags = cpu_irq_save();
+  HAL_StatusTypeDef stat = HAL_SD_WriteBlocks(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout);
+  cpu_irq_restore(flags);
+  if (stat != HAL_OK) {
+    debugPrintf("Write %d len %d error %d\n", WriteAddr, NumOfBlocks, stat);
     sd_state = MSD_ERROR;
   }
+  debugPrintf("Write time %d\n", millis() - start);
 
+}
   return sd_state;
 }
 
