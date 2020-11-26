@@ -16,8 +16,9 @@
 //#define HAL_UART_MODULE_ENABLED // by default
 //#define HAL_PCD_MODULE_ENABLED  // Since STM32 v3.10700.191028 this is automatically added if any type of USB is enabled (as in Arduino IDE)
 #define HAL_WWDG_MODULE_ENABLED
+#define HAL_SD_MODULE_ENABLED
 
-#undef HAL_SD_MODULE_ENABLED
+//#undef HAL_SD_MODULE_ENABLED
 #undef HAL_DAC_MODULE_ENABLED
 #undef HAL_FLASH_MODULE_ENABLED
 #undef HAL_CAN_MODULE_ENABLED
