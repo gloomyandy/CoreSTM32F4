@@ -2,6 +2,9 @@
 #define __HARDWARESDIO_H
 #include "stm32f4xx_hal.h"
 #include "Core.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "RTOSIface/RTOSIface.h"
 
 
 #define SD_PRESENT               ((uint8_t)0x01)
@@ -14,6 +17,11 @@
 #define SD_PRESENT               ((uint8_t)0x01)
 #define SD_NOT_PRESENT           ((uint8_t)0x00)
 #define SD_DATATIMEOUT           ((uint32_t)100000000)
+extern "C" void DMA2_Stream6_IRQHandler(void);
+extern "C" void DMA2_Stream3_IRQHandler(void);
+extern "C" void SDIO_IRQHandler(void);
+extern "C" void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsdio);
+extern "C" void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsdio);
 
 class HardwareSDIO
 {
@@ -30,7 +38,17 @@ public:
     static HardwareSDIO SDIO1;
 
 private:
+    void initDmaStream(DMA_HandleTypeDef& hdma, DMA_Stream_TypeDef *inst, uint32_t chan, IRQn_Type irq, uint32_t dir, uint32_t minc) noexcept;
     SD_HandleTypeDef hsd;
+    DMA_HandleTypeDef dmaRx;
+    DMA_HandleTypeDef dmaTx;
+    TaskHandle waitingTask;
+
+    friend void DMA2_Stream6_IRQHandler();
+    friend void DMA2_Stream3_IRQHandler();
+    friend void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsdio);
+    friend void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsdio);
+    friend void SDIO_IRQHandler();
 };
 
 #endif

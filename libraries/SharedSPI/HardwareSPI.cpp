@@ -86,15 +86,15 @@ extern "C" void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) noexcept
     if (s->callback) s->callback(s);    
 }    
 
-extern "C" void DMA2_Stream2_IRQHandler()
-{
-    HAL_DMA_IRQHandler(&(HardwareSPI::SSP1.dmaRx));    
-}
+//extern "C" void DMA2_Stream2_IRQHandler()
+//{
+//    HAL_DMA_IRQHandler(&(HardwareSPI::SSP1.dmaRx));    
+//}
 
-extern "C" void DMA2_Stream3_IRQHandler()
-{
-    HAL_DMA_IRQHandler(&(HardwareSPI::SSP1.dmaTx));    
-}
+//extern "C" void DMA2_Stream3_IRQHandler()
+//{
+//    HAL_DMA_IRQHandler(&(HardwareSPI::SSP1.dmaTx));    
+//}
 
 extern "C" void DMA1_Stream3_IRQHandler()
 {

@@ -1,11 +1,71 @@
 
 #include "HardwareSDIO.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
+#include "task.h"
+
 extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 HardwareSDIO HardwareSDIO::SDIO1;
 
+extern "C" void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsdio)
+{
+  TaskBase::GiveFromISR(HardwareSDIO::SDIO1.waitingTask);
+}
+
+extern "C" void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsdio)
+{
+  TaskBase::GiveFromISR(HardwareSDIO::SDIO1.waitingTask);
+}    
+
+extern "C" void DMA2_Stream3_IRQHandler()
+{
+    HAL_DMA_IRQHandler(&(HardwareSDIO::SDIO1.dmaRx));    
+}
+
+extern "C" void DMA2_Stream6_IRQHandler()
+{
+    HAL_DMA_IRQHandler(&(HardwareSDIO::SDIO1.dmaTx));    
+}
+
+volatile uint32_t abortCalled = false;
+extern "C" void HAL_SD_AbortCallback(SD_HandleTypeDef *hsd) {
+  abortCalled = true;
+}
+
+extern "C" void SDIO_IRQHandler()
+{
+  HAL_SD_IRQHandler(&(HardwareSDIO::SDIO1.hsd));
+}
+
 HardwareSDIO::HardwareSDIO() noexcept
 {   
+}
+
+
+void HardwareSDIO::initDmaStream(DMA_HandleTypeDef& hdma, DMA_Stream_TypeDef *inst, uint32_t chan, IRQn_Type irq, uint32_t dir, uint32_t minc) noexcept
+{
+    hdma.Instance                 = inst;
+    
+    hdma.Init.Channel             = chan;
+    hdma.Init.Direction           = dir;
+    hdma.Init.PeriphInc           = DMA_PINC_DISABLE;
+    hdma.Init.MemInc              = minc;
+    hdma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+    hdma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+    hdma.Init.Mode                = DMA_PFCTRL;
+    hdma.Init.Priority            = DMA_PRIORITY_LOW;
+    hdma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;         
+    hdma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+    hdma.Init.MemBurst            = DMA_MBURST_INC4;
+    hdma.Init.PeriphBurst         = DMA_PBURST_INC4;
+    
+    if (HAL_DMA_Init(&hdma) != HAL_OK)
+    {
+      debugPrintf("Failed to init DMA\n");
+      delay(5000);
+    }
+    NVIC_EnableIRQ(irq);      
 }
 
 /**
@@ -34,7 +94,13 @@ uint8_t HardwareSDIO::Init(void) noexcept
   pinmap_pinout(PC_11, PinMap_SD);
   pinmap_pinout(PC_12, PinMap_SD);
   pinmap_pinout(PD_2, PinMap_SD);
-
+  // DMA setup
+  __HAL_RCC_DMA2_CLK_ENABLE();
+  initDmaStream(dmaRx, DMA2_Stream3, DMA_CHANNEL_4, DMA2_Stream3_IRQn, DMA_PERIPH_TO_MEMORY, DMA_MINC_ENABLE);
+  initDmaStream(dmaTx, DMA2_Stream6, DMA_CHANNEL_4, DMA2_Stream6_IRQn, DMA_MEMORY_TO_PERIPH, DMA_MINC_ENABLE);
+  __HAL_LINKDMA(&hsd, hdmarx, dmaRx);
+  __HAL_LINKDMA(&hsd, hdmatx, dmaTx);
+  waitingTask = 0;
   sd_state = HAL_SD_Init(&hsd);
   /* Configure SD Bus width (4 bits mode selected) */
   if (sd_state == MSD_OK) {
@@ -61,6 +127,7 @@ uint8_t HardwareSDIO::ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
 {
   uint8_t sd_state = MSD_OK;
 uint32_t start = millis();
+
 while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
 {
 
@@ -70,24 +137,26 @@ if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
   debugPrintf("Card not ready\n");
   return MSD_ERROR;
 }
-if (NumOfBlocks > 0)
+if (((uint32_t)pData & 3) != 0)
 {
-  irqflags_t flags = cpu_irq_save();
-  HAL_StatusTypeDef stat = HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout);
-  cpu_irq_restore(flags);
+  debugPrintf("Bad address\n");
+  delay(5000);
+}
+//debugPrintf("Start read\n");
+  waitingTask = TaskBase::GetCallerTaskHandle();
+  HAL_StatusTypeDef stat = HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks);
   if (stat != HAL_OK) {
     debugPrintf("Read %d len %d error %d\n", ReadAddr, NumOfBlocks, stat);
-    sd_state = MSD_ERROR;
+    return MSD_ERROR;
   }
-}
-else
-{
-  if (HAL_SD_ReadBlocks(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK) {
-    debugPrintf("Read %d len %d\n", ReadAddr, NumOfBlocks);
-    sd_state = MSD_ERROR;
+  if(!TaskBase::Take(Timeout)) // timed out
+  {
+      sd_state = MSD_ERROR;
+      debugPrintf("Read SD timeout\n");
   }
-}
-  //debugPrintf("Card state %x\n", HAL_SD_GetCardState(&hsd));
+  //debugPrintf("Read complete\n");
+  waitingTask = 0;
+  //debugPrintf("abort called %d\n", abortCalled);
   return sd_state;
 }
 
@@ -112,20 +181,19 @@ if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
   debugPrintf("Card not ready\n");
   return MSD_ERROR;
 }
-if (NumOfBlocks > 0)
-{
-      debugPrintf("Write %d len %d\n", WriteAddr, NumOfBlocks);
-  start=millis();
-  irqflags_t flags = cpu_irq_save();
-  HAL_StatusTypeDef stat = HAL_SD_WriteBlocks(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout);
-  cpu_irq_restore(flags);
+  waitingTask = TaskBase::GetCallerTaskHandle();
+  HAL_StatusTypeDef stat = HAL_SD_WriteBlocks_DMA(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks);
   if (stat != HAL_OK) {
     debugPrintf("Write %d len %d error %d\n", WriteAddr, NumOfBlocks, stat);
-    sd_state = MSD_ERROR;
+    return MSD_ERROR;
   }
-  debugPrintf("Write time %d\n", millis() - start);
+  if(!TaskBase::Take(Timeout)) // timed out
+  {
+      sd_state = MSD_ERROR;
+      debugPrintf("Write SD timeout\n");
+  }
+  waitingTask = 0;
 
-}
   return sd_state;
 }
 
