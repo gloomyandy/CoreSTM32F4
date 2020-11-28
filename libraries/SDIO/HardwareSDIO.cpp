@@ -104,7 +104,7 @@ uint8_t HardwareSDIO::Init(void) noexcept
   sd_state = HAL_SD_Init(&hsd);
   /* Configure SD Bus width (4 bits mode selected) */
   if (sd_state == MSD_OK) {
-#if 0
+#if 1
     /* Enable wide operation */
     if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK) {
       sd_state = MSD_ERROR;
