@@ -28,19 +28,19 @@
  *
  * \param timeout in milliseconds.
  */
-void watchdogEnable (uint32_t timeout) noexcept;
+void WatchdogEnable (uint32_t timeout) noexcept;
 
 /*
  * \brief Disable the watchdog timer. Should only be called once.
  *
  */
-void watchdogDisable (void) noexcept;
+void WatchdogDisable (void) noexcept;
 
 /*
  * \brief Reset the watchdog counter.
  *
  */
-void watchdogReset (void) noexcept;
+void WatchdogReset (void) noexcept;
 
 #endif /* _WATCHDOG_ */
 
