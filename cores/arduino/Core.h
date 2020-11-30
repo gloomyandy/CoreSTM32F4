@@ -68,7 +68,8 @@ enum SSPChannel : uint8_t
     SSP3,
     //Software SPI
     SWSPI0,
-
+    // Hardware SDIO
+    SSPSDIO,
     // Not defined
     SSPNONE = 0xff
 };
