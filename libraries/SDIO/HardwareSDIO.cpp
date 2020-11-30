@@ -20,17 +20,15 @@ extern "C" void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsdio)
 
 extern "C" void DMA2_Stream3_IRQHandler()
 {
-    HAL_DMA_IRQHandler(&(HardwareSDIO::SDIO1.dmaRx));    
+  HAL_DMA_IRQHandler(&(HardwareSDIO::SDIO1.dmaRx));    
 }
 
 extern "C" void DMA2_Stream6_IRQHandler()
 {
-    HAL_DMA_IRQHandler(&(HardwareSDIO::SDIO1.dmaTx));    
+  HAL_DMA_IRQHandler(&(HardwareSDIO::SDIO1.dmaTx));    
 }
 
-volatile uint32_t abortCalled = false;
 extern "C" void HAL_SD_AbortCallback(SD_HandleTypeDef *hsd) {
-  abortCalled = true;
 }
 
 extern "C" void SDIO_IRQHandler()
@@ -45,27 +43,27 @@ HardwareSDIO::HardwareSDIO() noexcept
 
 void HardwareSDIO::initDmaStream(DMA_HandleTypeDef& hdma, DMA_Stream_TypeDef *inst, uint32_t chan, IRQn_Type irq, uint32_t dir, uint32_t minc) noexcept
 {
-    hdma.Instance                 = inst;
-    
-    hdma.Init.Channel             = chan;
-    hdma.Init.Direction           = dir;
-    hdma.Init.PeriphInc           = DMA_PINC_DISABLE;
-    hdma.Init.MemInc              = minc;
-    hdma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    hdma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
-    hdma.Init.Mode                = DMA_PFCTRL;
-    hdma.Init.Priority            = DMA_PRIORITY_LOW;
-    hdma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;         
-    hdma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
-    hdma.Init.MemBurst            = DMA_MBURST_INC4;
-    hdma.Init.PeriphBurst         = DMA_PBURST_INC4;
-    
-    if (HAL_DMA_Init(&hdma) != HAL_OK)
-    {
-      debugPrintf("Failed to init DMA\n");
-      delay(5000);
-    }
-    NVIC_EnableIRQ(irq);      
+  hdma.Instance                 = inst;
+  
+  hdma.Init.Channel             = chan;
+  hdma.Init.Direction           = dir;
+  hdma.Init.PeriphInc           = DMA_PINC_DISABLE;
+  hdma.Init.MemInc              = minc;
+  hdma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+  hdma.Init.MemDataAlignment    = DMA_MDATAALIGN_WORD;
+  hdma.Init.Mode                = DMA_PFCTRL;
+  hdma.Init.Priority            = DMA_PRIORITY_LOW;
+  hdma.Init.FIFOMode            = DMA_FIFOMODE_ENABLE;         
+  hdma.Init.FIFOThreshold       = DMA_FIFO_THRESHOLD_FULL;
+  hdma.Init.MemBurst            = DMA_MBURST_INC4;
+  hdma.Init.PeriphBurst         = DMA_PBURST_INC4;
+  
+  if (HAL_DMA_Init(&hdma) != HAL_OK)
+  {
+    debugPrintf("SDIO Failed to init DMA\n");
+    delay(5000);
+  }
+  NVIC_EnableIRQ(irq);      
 }
 
 /**
@@ -104,12 +102,10 @@ uint8_t HardwareSDIO::Init(void) noexcept
   sd_state = HAL_SD_Init(&hsd);
   /* Configure SD Bus width (4 bits mode selected) */
   if (sd_state == MSD_OK) {
-#if 1
     /* Enable wide operation */
     if (HAL_SD_ConfigWideBusOperation(&hsd, SDIO_BUS_WIDE_4B) != HAL_OK) {
       sd_state = MSD_ERROR;
     }
-#endif
   }
 
   return sd_state;
@@ -126,37 +122,30 @@ uint8_t HardwareSDIO::Init(void) noexcept
 uint8_t HardwareSDIO::ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks, uint32_t Timeout) noexcept
 {
   uint8_t sd_state = MSD_OK;
-uint32_t start = millis();
+  uint32_t start = millis();
 
-while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
-{
+  while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
+  {
 
-}
-if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
-{
-  debugPrintf("Card not ready\n");
-  return MSD_ERROR;
-}
-if (((uint32_t)pData & 3) != 0)
-{
-  debugPrintf("Bad address\n");
-  delay(5000);
-}
-//debugPrintf("Start read\n");
+  }
+  if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
+  {
+    debugPrintf("SDIO Card not ready on read\n");
+    return MSD_ERROR;
+  }
+
   waitingTask = TaskBase::GetCallerTaskHandle();
   HAL_StatusTypeDef stat = HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks);
   if (stat != HAL_OK) {
-    debugPrintf("Read %d len %d error %d\n", ReadAddr, NumOfBlocks, stat);
+    debugPrintf("SDIO Read %d len %d error %d\n", (int)ReadAddr, (int)NumOfBlocks, stat);
     return MSD_ERROR;
   }
   if(!TaskBase::Take(Timeout)) // timed out
   {
       sd_state = MSD_ERROR;
-      debugPrintf("Read SD timeout\n");
+      debugPrintf("SDIO Read SD timeout\n");
   }
-  //debugPrintf("Read complete\n");
   waitingTask = 0;
-  //debugPrintf("abort called %d\n", abortCalled);
   return sd_state;
 }
 
@@ -171,26 +160,26 @@ if (((uint32_t)pData & 3) != 0)
 uint8_t HardwareSDIO::WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks, uint32_t Timeout) noexcept
 {
   uint8_t sd_state = MSD_OK;
-uint32_t start = millis();
-while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
-{
+  uint32_t start = millis();
+  while(HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER && millis() - start < 5000)
+  {
 
-}
-if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
-{
-  debugPrintf("Card not ready\n");
-  return MSD_ERROR;
-}
+  }
+  if (HAL_SD_GetCardState(&hsd) != HAL_SD_CARD_TRANSFER)
+  {
+    debugPrintf("SDIO Card not ready on write\n");
+    return MSD_ERROR;
+  }
   waitingTask = TaskBase::GetCallerTaskHandle();
   HAL_StatusTypeDef stat = HAL_SD_WriteBlocks_DMA(&hsd, (uint8_t *)pData, WriteAddr, NumOfBlocks);
   if (stat != HAL_OK) {
-    debugPrintf("Write %d len %d error %d\n", WriteAddr, NumOfBlocks, stat);
+    debugPrintf("SDIO Write %d len %d error %d\n", (int)WriteAddr, (int)NumOfBlocks, stat);
     return MSD_ERROR;
   }
   if(!TaskBase::Take(Timeout)) // timed out
   {
       sd_state = MSD_ERROR;
-      debugPrintf("Write SD timeout\n");
+      debugPrintf("SDIO Write SD timeout\n");
   }
   waitingTask = 0;
 
@@ -252,67 +241,3 @@ uint8_t HardwareSDIO::IsDetected(void) noexcept
   __IO uint8_t status = SD_PRESENT;
   return status;
 }
-
-#if 0
-void HAL_SD_MspInit(SD_HandleTypeDef* hsd) {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(hsd->Instance==SDIO) {
-    /* Peripheral clock enable */
-    __HAL_RCC_SDIO_CLK_ENABLE();
-
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-    __HAL_RCC_GPIOD_CLK_ENABLE();
-    /**SDIO GPIO Configuration
-    PC8     ------> SDIO_D0
-    PC9     ------> SDIO_D1
-    PC10     ------> SDIO_D2
-    PC11     ------> SDIO_D3
-    PC12     ------> SDIO_CK
-    PD2     ------> SDIO_CMD
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
-                          |GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = GPIO_PIN_2;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF12_SDIO;
-    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-
-}
-
-/**
-* @brief SD MSP De-Initialization
-* This function freeze the hardware resources used in this example
-* @param hsd: SD handle pointer
-* @retval None
-*/
-void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd) {
-  if(hsd->Instance==SDIO) {
-    /* Peripheral clock disable */
-    __HAL_RCC_SDIO_CLK_DISABLE();
-
-    /**SDIO GPIO Configuration
-    PC8     ------> SDIO_D0
-    PC9     ------> SDIO_D1
-    PC10     ------> SDIO_D2
-    PC11     ------> SDIO_D3
-    PC12     ------> SDIO_CK
-    PD2     ------> SDIO_CMD
-    */
-    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
-                          |GPIO_PIN_12);
-
-    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_2);
-
-  }
-}
-#endif
-
