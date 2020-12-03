@@ -289,3 +289,11 @@ bool ConfigurableUART::IsConnected() noexcept
 }
 
 
+// FIXME we should probbaly implement the call back for this!
+ConfigurableUART::InterruptCallbackFn ConfigurableUART::SetInterruptCallback(InterruptCallbackFn f) noexcept
+{
+	InterruptCallbackFn ret = interruptCallback;
+	interruptCallback = f;
+	return ret;
+}
+

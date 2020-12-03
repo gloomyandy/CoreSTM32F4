@@ -6,7 +6,7 @@ RRF_SRC_DIRS = FilamentMonitors GCodes GCodes/GCodeBuffer Heating
 RRF_SRC_DIRS += Movement Movement/BedProbing Movement/Kinematics 
 RRF_SRC_DIRS += Storage Libraries/sha1 Comms
 RRF_SRC_DIRS += Heating/Sensors Fans ObjectModel Endstops Hardware Hardware/SharedSpi Tools
-RRF_SRC_DIRS += Display Display/ST7920 GPIO
+RRF_SRC_DIRS += Display Display/ST7920 GPIO bossa
 
 #STM RRF Addons
 RRF_SRC_DIRS += targets/STM32 targets/common targets/STM32/FatFS targets/common/FatFS targets/common/Fans
@@ -43,6 +43,11 @@ RRF_INCLUDES += -I$(RRF_SRC_BASE)/targets/
 #If building ESP8266 WIFI we only need to add the include from DuetWifiSocketServer as it has a file needed to compile RRF 
 ifeq ($(NETWORK), ESP8266WIFI)
 	RRF_INCLUDES += -IDuetWiFiSocketServer/src/include
+endif
+
+ifeq ($(NETWORK), SBC)
+	RRF_INCLUDES += -I$(RRF_SRC_BASE)/Networking
+	RRF_OBJ_SRC_CXX += $(RRF_SRC_BASE)/Networking/FirmwareUpdater.cpp
 endif
 
 #end RRF
