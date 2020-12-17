@@ -58,7 +58,7 @@ typedef uint32_t NvicPriority;
 #endif
 
 #ifdef __cplusplus
-
+extern const char * const sysStackLimit;
 // SSP/SPI Channels - yes I know the names do not match the numbers...
 enum SSPChannel : uint8_t
 {
@@ -181,8 +181,8 @@ inline void memcpyf(float *dst, const float *src, size_t numFloats) noexcept
 #define SAME5x  0
 #define SAMC21  0
 
-// Space reserved for Handler stack in bytes
-#define SystemStackSize (1024)
+// Address of main RAM bank
+#define IRAM_ADDR 0x20000000
 
 #include "wiring.h"
 #include "wiring_digital.h"

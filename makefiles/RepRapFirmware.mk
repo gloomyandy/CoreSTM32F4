@@ -45,11 +45,6 @@ ifeq ($(NETWORK), ESP8266WIFI)
 	RRF_INCLUDES += -IDuetWiFiSocketServer/src/include
 endif
 
-ifeq ($(NETWORK), SBC)
-	RRF_INCLUDES += -I$(RRF_SRC_BASE)/Networking
-	RRF_OBJ_SRC_CXX += $(RRF_SRC_BASE)/Networking/FirmwareUpdater.cpp
-endif
-
 #end RRF
 
 #Libc and libcpp in RRF

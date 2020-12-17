@@ -297,3 +297,10 @@ ConfigurableUART::InterruptCallbackFn ConfigurableUART::SetInterruptCallback(Int
 	return ret;
 }
 
+// Get and clear the errors
+ConfigurableUART::Errors ConfigurableUART::GetAndClearErrors() noexcept
+{
+	Errors errs;
+	std::swap(errs, errors);
+	return errs;
+}

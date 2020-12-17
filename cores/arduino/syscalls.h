@@ -1,3 +1,5 @@
+#pragma once
+
 /*----------------------------------------------------------------------------
  *        Headers
  *----------------------------------------------------------------------------*/
@@ -5,6 +7,19 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef SystemStackSize
+# define SystemStackSize	(1024)
+#endif
+
+extern char _end;									// defined by the linker script
+extern char _estack;
+
+extern const char * const sysStackLimit;
+
+extern char *heapTop;
+extern const char *heapLimit;
+
+extern void OutOfMemoryHandler() noexcept;					// this must be provided by the client application
 
 /*----------------------------------------------------------------------------
  *        Exported functions
@@ -13,8 +28,6 @@
 extern "C" {
 #endif
 
-extern char *heapTop;
-extern const char *heapLimit;
 extern caddr_t _sbrk( int incr ) ;
 
 extern int link( char *cOld, char *cNew ) ;

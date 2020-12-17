@@ -11,10 +11,13 @@
 #endif
 #include "Core.h"
 #include <errno.h>
+#include "syscalls.h"
 #undef errno
 extern int errno;
-extern int  _end ;
+
 extern char _estack;
+const char * const sysStackLimit = &_estack - SystemStackSize;
+const char *heapLimit = (char*)&_estack - SystemStackSize;
 
 extern size_t uart_debug_write(uint8_t *data, uint32_t size);
 
@@ -32,7 +35,6 @@ extern size_t uart_debug_write(uint8_t *data, uint32_t size);
 void OutOfMemoryHandler() noexcept;
 
 char *heapTop = (char *)&_end;
-const char *heapLimit = &_estack - SystemStackSize;
 
 extern "C" __attribute__((weak)) caddr_t _sbrk(ptrdiff_t incr) noexcept
 {
