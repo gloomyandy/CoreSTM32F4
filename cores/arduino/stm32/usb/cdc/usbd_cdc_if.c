@@ -99,7 +99,9 @@ static int8_t USBD_CDC_Init(void)
   CDC_ReceiveQueue_Init(&ReceiveQueue);
   receivePended = true;
   USBD_CDC_SetRxBuffer(&hUSBD_Device_CDC, CDC_ReceiveQueue_ReserveBlock(&ReceiveQueue));
-
+#ifndef USB_CDC_USE_DTR
+  lineState = 1;
+#endif
   return (USBD_OK);
 }
 
@@ -111,6 +113,7 @@ static int8_t USBD_CDC_Init(void)
   */
 static int8_t USBD_CDC_DeInit(void)
 {
+  lineState = 0;
   return (USBD_OK);
 }
 
@@ -183,6 +186,7 @@ static int8_t USBD_CDC_Control(uint8_t cmd, uint8_t *pbuf, uint16_t length)
       break;
 
     case CDC_SET_CONTROL_LINE_STATE:
+#ifdef USB_CDC_USE_DTR
       lineState =
         (((USBD_SetupReqTypedef *)pbuf)->wValue & 0x01) != 0; // Check DTR state
       if (lineState) { // Reset the transmit timeout when the port is connected
@@ -190,6 +194,7 @@ static int8_t USBD_CDC_Control(uint8_t cmd, uint8_t *pbuf, uint16_t length)
       }
 #ifdef DTR_TOGGLING_SEQ
       dtr_toggling++; /* Count DTR toggling */
+#endif
 #endif
       break;
 
