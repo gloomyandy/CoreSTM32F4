@@ -17,14 +17,13 @@ class ConfigurableUART : public Stream
 
 public:
 	typedef void (*InterruptCallbackFn)(ConfigurableUART*) noexcept;
-	union Errors
+	struct Errors
 	{
-		uint32_t all;
-		uint32_t uartOverrun : 11,
-				 framing : 11,
-				 bufferOverrun : 10;
+		uint32_t uartOverrun,
+				 framing,
+				 bufferOverrun;
 
-		Errors() noexcept { all = 0; }
+		Errors() noexcept : uartOverrun(0), framing(0), bufferOverrun(0)  {  }
 	};
 
 

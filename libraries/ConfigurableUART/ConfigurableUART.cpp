@@ -1,6 +1,7 @@
 //author: sdavi
 
 #include "ConfigurableUART.h"
+extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 
 ConfigurableUART UART_Slot0;
@@ -301,6 +302,12 @@ ConfigurableUART::InterruptCallbackFn ConfigurableUART::SetInterruptCallback(Int
 ConfigurableUART::Errors ConfigurableUART::GetAndClearErrors() noexcept
 {
 	Errors errs;
-	std::swap(errs, errors);
+    debugPrintf("tx count %u int count %u full %u\n", serialPort->_serial.tx_count, serialPort->_serial.tx_ints, serialPort->_serial.tx_full);
+    debugPrintf("rx count %u int count %u full %u hw errors %u\n", serialPort->_serial.rx_count, serialPort->_serial.rx_ints, serialPort->_serial.rx_full, serialPort->_serial.hw_error);
+    errs.uartOverrun = 0;
+    errs.bufferOverrun = serialPort->_serial.rx_full;
+    errs.framing = serialPort->_serial.hw_error;
+    serialPort->_serial.hw_error = serialPort->_serial.rx_count = serialPort->_serial.rx_full = serialPort->_serial.rx_ints = 0;
+    serialPort->_serial.tx_count = serialPort->_serial.tx_full = serialPort->_serial.tx_ints = 0;
 	return errs;
 }

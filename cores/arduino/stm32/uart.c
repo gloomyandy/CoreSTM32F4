@@ -362,6 +362,7 @@ void uart_init(serial_t *obj, uint32_t baudrate, uint32_t databits, uint32_t par
   if (HAL_UART_Init(huart) != HAL_OK) {
     return;
   }
+  HAL_NVIC_EnableIRQ(obj->irq);
 }
 
 /**
@@ -657,24 +658,39 @@ uint8_t serial_tx_active(serial_t *obj)
 }
 
 /**
-  * @brief  Read receive byte from uart
+  * @brief  Update the buffer pointers to match current read position
   * @param  obj : pointer to serial_t structure
   * @retval last character received
   */
-int uart_getc(serial_t *obj, unsigned char *c)
+int uart_update_rx(serial_t *obj)
 {
-  if (obj == NULL) {
+  //return 0;
+  if (obj == NULL || !serial_rx_active(obj)) {
     return -1;
   }
+  cpu_irq_disable();
+  uint32_t pos = (uart_handlers[obj->index]->pRxBuffPtr - obj->rx_buff) % SERIAL_RX_BUFFER_SIZE;
+  // Check for possible overflow and don't update
+  if (obj->rx_tail != pos)
+    obj->rx_head = pos;
+  cpu_irq_enable();
+  return 0;
+}
 
-  if (serial_rx_active(obj)) {
-    return -1; /* Transaction ongoing */
+
+/**
+  * @brief  Update the buffer pointers to match current write position
+  * @param  obj : pointer to serial_t structure
+  * @retval last character received
+  */
+int uart_update_tx(serial_t *obj)
+{
+  if (obj == NULL || !serial_tx_active(obj)) {
+    return -1;
   }
-
-  *c = (unsigned char)(obj->recv);
-  /* Restart RX irq */
-  HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->recv), 1);
-
+  cpu_irq_disable();
+  obj->tx_tail = (uart_handlers[obj->index]->pTxBuffPtr - obj->tx_buff) % SERIAL_TX_BUFFER_SIZE;
+  cpu_irq_enable();
   return 0;
 }
 
@@ -682,10 +698,9 @@ int uart_getc(serial_t *obj, unsigned char *c)
  * Begin asynchronous RX transfer (enable interrupt for data collecting)
  *
  * @param obj : pointer to serial_t structure
- * @param callback : function call at the end of reception
  * @retval none
  */
-void uart_attach_rx_callback(serial_t *obj, void (*callback)(serial_t *))
+void uart_start_rx(serial_t *obj)
 {
   if (obj == NULL) {
     return;
@@ -695,41 +710,43 @@ void uart_attach_rx_callback(serial_t *obj, void (*callback)(serial_t *))
   if (serial_rx_active(obj)) {
     return;
   }
-  obj->rx_callback = callback;
 
   /* Must disable interrupt to prevent handle lock contention */
-  HAL_NVIC_DisableIRQ(obj->irq);
+  cpu_irq_disable();
 
-  HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->recv), 1);
+  HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[0]), SERIAL_RX_BUFFER_SIZE);      
+  //HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[0]), 1);      
+  cpu_irq_enable();
 
   /* Enable interrupt */
   //HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
-  HAL_NVIC_EnableIRQ(obj->irq);
 }
 
 /**
  * Begin asynchronous TX transfer.
  *
  * @param obj : pointer to serial_t structure
- * @param callback : function call at the end of transmission
  * @retval none
  */
-void uart_attach_tx_callback(serial_t *obj, int (*callback)(serial_t *))
+void uart_start_tx(serial_t *obj)
 {
   if (obj == NULL) {
     return;
   }
-  obj->tx_callback = callback;
 
   /* Must disable interrupt to prevent handle lock contention */
-  HAL_NVIC_DisableIRQ(obj->irq);
-
-  /* The following function will enable UART_IT_TXE and error interrupts */
-  HAL_UART_Transmit_IT(uart_handlers[obj->index], &obj->tx_buff[obj->tx_tail], 1);
-
-  /* Enable interrupt */
-  //HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
-  HAL_NVIC_EnableIRQ(obj->irq);
+  //HAL_NVIC_DisableIRQ(obj->irq);
+  cpu_irq_disable();
+  if (!serial_tx_active(obj) && obj->tx_tail != obj->tx_head) {
+    uint32_t len;
+    if (obj->tx_head > obj->tx_tail)
+      len = obj->tx_head - obj->tx_tail;
+    else
+      len = SERIAL_TX_BUFFER_SIZE - obj->tx_tail;
+    cpu_irq_disable();      
+    HAL_UART_Transmit_IT(uart_handlers[obj->index], &obj->tx_buff[obj->tx_tail], len);
+    cpu_irq_enable();
+  }
 }
 
 void uart_set_interrupt_priority(serial_t *obj, uint32_t priority)
@@ -770,7 +787,38 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   serial_t *obj = get_serial_obj(huart);
   if (obj) {
-    obj->rx_callback(obj);
+  #if 1
+    // update the read ponter and check for overflow
+    uint32_t pos = (uart_handlers[obj->index]->pRxBuffPtr - obj->rx_buff) % SERIAL_RX_BUFFER_SIZE;
+    if (obj->rx_tail != pos)
+      obj->rx_head = pos;
+    else if (pos != obj->rx_head)
+      obj->rx_full++;  
+    obj->rx_ints++;
+    // do we have space for more?
+    uint32_t len;
+    if (((obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE) != obj->rx_tail)
+    {
+      // yes work out how much to read in one go
+      if (obj->rx_head < obj->rx_tail)
+        len = obj->rx_tail - obj->rx_head - 1;
+      else if (obj->rx_tail > 0)
+        len = SERIAL_RX_BUFFER_SIZE - obj->rx_head;
+      else
+        len = SERIAL_RX_BUFFER_SIZE - obj->rx_head - 1;      
+    }
+    else
+      // no space, allow just a single byte which will overwrite the "full" slot
+      len = 1;
+    
+    HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[obj->rx_head]), len);
+  #else
+    uint32_t pos = (obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
+    if (pos != obj->rx_tail)
+      obj->rx_head = pos;
+    HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[obj->rx_head]), 1);
+  #endif  
+
   }
 }
 
@@ -783,9 +831,18 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   serial_t *obj = get_serial_obj(huart);
 
-  if (obj && obj->tx_callback(obj) != -1) {
-    if (HAL_UART_Transmit_IT(huart, &obj->tx_buff[obj->tx_tail], 1) != HAL_OK) {
-      return;
+  if (obj) {
+    obj->tx_ints++;
+    // update write pointer
+    obj->tx_tail = (uart_handlers[obj->index]->pTxBuffPtr - obj->tx_buff) % SERIAL_TX_BUFFER_SIZE;
+    // do we have more to send?
+    if (obj->tx_tail != obj->tx_head) {
+      uint32_t len;
+      if (obj->tx_head > obj->tx_tail)
+        len = obj->tx_head - obj->tx_tail;
+      else
+        len = SERIAL_TX_BUFFER_SIZE - obj->tx_tail;      
+      HAL_UART_Transmit_IT(huart, &obj->tx_buff[obj->tx_tail], len);
     }
   }
 }
@@ -820,8 +877,12 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 #endif
   /* Restart receive interrupt after any error */
   serial_t *obj = get_serial_obj(huart);
-  if (obj && !serial_rx_active(obj)) {
-    HAL_UART_Receive_IT(huart, &(obj->recv), 1);
+  if (obj) {
+    obj->hw_error++;
+    if (!serial_rx_active(obj)) {
+      HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[obj->rx_head]), 1);
+      //HAL_UART_RxCpltCallback(huart);
+    }
   }
 }
 
