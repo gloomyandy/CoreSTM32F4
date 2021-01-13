@@ -137,7 +137,7 @@ uint8_t HardwareSDIO::ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
   waitingTask = TaskBase::GetCallerTaskHandle();
   HAL_StatusTypeDef stat = HAL_SD_ReadBlocks_DMA(&hsd, (uint8_t *)pData, ReadAddr, NumOfBlocks);
   if (stat != HAL_OK) {
-    debugPrintf("SDIO Read %d len %d error %d\n", (int)ReadAddr, (int)NumOfBlocks, stat);
+    debugPrintf("SDIO Read %d len %d error %d code %x\n", (int)ReadAddr, (int)NumOfBlocks, stat, (unsigned)HAL_SD_GetError(&hsd));
     return MSD_ERROR;
   }
   if(!TaskBase::Take(Timeout)) // timed out
