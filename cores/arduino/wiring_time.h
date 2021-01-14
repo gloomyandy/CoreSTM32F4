@@ -56,6 +56,59 @@ extern uint32_t micros(void) ;
 extern void coreDelay(uint32_t ms) ;
 extern void delay(uint32_t ms) noexcept;
 
+
+#if defined(DWT_BASE) && !defined(DWT_DELAY_DISABLED)
+	// Delay in cycles
+  static inline uint32_t DelayCycles(const uint32_t start, const uint32_t cycles) noexcept __attribute__((always_inline, unused));
+  #ifdef __cplusplus
+  	[[gnu::always_inline, gnu::optimize("03")]]
+  #endif
+  static inline uint32_t DelayCycles(const uint32_t start, const uint32_t cycles) noexcept
+	{
+    while ((DWT->CYCCNT) - start < cycles) ; 
+    return (DWT->CYCCNT); 
+	}
+
+  static inline uint32_t GetCurrentCycles() noexcept
+  {
+    return (DWT->CYCCNT);
+  }
+#else
+
+  #ifdef __cplusplus
+  	[[gnu::always_inline, gnu::optimize("03")]]
+  #endif
+ static inline void __delay_4cycles(uint32_t cy) noexcept { // +1 cycle
+	__asm__ __volatile__(
+		"  .syntax unified\n\t" // is to prevent CM0,CM1 non-unified syntax
+		"1:\n\t"
+		"  subs %[cnt],#1\n\t" // 1
+		"  mov r0, r0\n\t"            // 1
+		"  bne 1b\n\t"         // 1 + (1? reload)
+		: [cnt]"+r"(cy)   // output: +r means input+output
+		:                 // input:
+		: "cc"            // clobbers:
+	);
+	}
+
+	// Delay in cycles
+  #ifdef __cplusplus
+  	[[gnu::always_inline, gnu::optimize("03")]]
+  #endif
+  static inline uint32_t DelayCycles(const uint32_t start, const uint32_t cycles) noexcept 
+	{
+		if (cycles >> 2) __delay_4cycles(cycles >> 2);
+		return 0;
+	}
+
+  static inline uint32 GetCurrentCycles() noexcept
+  {
+    return 0;
+  }
+
+#endif
+
+
 /**
  * \brief Pauses the program for the amount of time (in microseconds) specified as parameter.
  *
@@ -65,10 +118,10 @@ static inline void delayMicroseconds(uint32_t) __attribute__((always_inline, unu
 static inline void delayMicroseconds(uint32_t us)
 {
 #if defined(DWT_BASE) && !defined(DWT_DELAY_DISABLED)
-  int32_t start  = dwt_getCycles();
+  int32_t start  = (DWT->CYCCNT);
   int32_t cycles = us * (SystemCoreClock / 1000000);
 
-  while ((int32_t)dwt_getCycles() - start < cycles);
+  while ((int32_t)(DWT->CYCCNT) - start < cycles);
 #else
   __IO uint32_t currentTicks = SysTick->VAL;
   /* Number of ticks per millisecond */
@@ -86,6 +139,13 @@ static inline void delayMicroseconds(uint32_t us)
   } while (nbTicks > elapsedTicks);
 #endif
 }
+
+
+static inline uint32_t NanosecondsToCycles(uint32_t ns) noexcept
+{
+  return (ns * (uint64_t)SystemCoreClock)/1000000000u;
+}
+
 
 #ifdef __cplusplus
 }

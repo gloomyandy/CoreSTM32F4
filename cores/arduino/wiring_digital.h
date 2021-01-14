@@ -105,6 +105,16 @@ inline void fastDigitalWriteLow(const Pin pin) noexcept
 	WRITE_REG(GPIOPort[STM_PORT(pin)]->BSRR, STM_GPIO_PIN(pin) << 16);
 }
 
+// Read a pin with no error checking
+#ifdef __cplusplus
+[[gnu::always_inline, gnu::optimize("O3")]] inline int fastDigitalRead(const Pin pin) noexcept
+#else
+inline int fastDigitalRead(const Pin pin) noexcept
+#endif
+{
+	return (READ_BIT(GPIOPort[STM_PORT(pin)]->IDR, STM_GPIO_PIN(pin)) ? HIGH : LOW);
+}
+
 
 
 #ifdef __cplusplus
