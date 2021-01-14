@@ -328,14 +328,11 @@ void HardwareSerial::end() noexcept
 
 int HardwareSerial::available(void) noexcept
 {
-  uart_update_rx(&_serial);
   return ((unsigned int)(SERIAL_RX_BUFFER_SIZE + _serial.rx_head - _serial.rx_tail)) % SERIAL_RX_BUFFER_SIZE;
 }
 
 int HardwareSerial::peek(void) noexcept
 {
-  if (_serial.rx_head == _serial.rx_tail)
-    uart_update_rx(&_serial);
   if (_serial.rx_head == _serial.rx_tail) {
     return -1;
   } else {
@@ -346,21 +343,17 @@ int HardwareSerial::peek(void) noexcept
 int HardwareSerial::read(void) noexcept
 {
   // if the head isn't ahead of the tail, we don't have any characters
-  if (_serial.rx_head == _serial.rx_tail)
-    uart_update_rx(&_serial);
   if (_serial.rx_head == _serial.rx_tail) {
     return -1;
   } else {
     unsigned char c = _serial.rx_buff[_serial.rx_tail];
     _serial.rx_tail = (_serial.rx_tail + 1) % SERIAL_RX_BUFFER_SIZE;
-    _serial.rx_count++;
     return c;
   }
 }
 
 int HardwareSerial::availableForWrite(void) noexcept
 {
-  uart_update_tx(&_serial);
   uint32_t head = _serial.tx_head;
   uint32_t tail = _serial.tx_tail;
 
@@ -372,16 +365,18 @@ int HardwareSerial::availableForWrite(void) noexcept
 
 void HardwareSerial::flush() noexcept
 {
+  // wait for the buffer to empty
   while ((_serial.tx_head != _serial.tx_tail)) {
     // nop, the interrupt handler will free up space for us
+  }
+  // and for the hardware to complete sending
+  while (serial_tx_active(&_serial)) {
   }
 }
 
 size_t HardwareSerial::write(uint8_t c) noexcept
 {
   uint32_t i = (_serial.tx_head + 1) % SERIAL_TX_BUFFER_SIZE;
-  if (i == _serial.tx_tail) _serial.tx_full++;
-  _serial.tx_count++;
   // If the output buffer is full, there's nothing for it other than to
   // wait for the interrupt handler to empty it a bit
   while (i == _serial.tx_tail) {
@@ -433,16 +428,9 @@ size_t HardwareSerial::writeBlock(const uint8_t *buffer, size_t size) noexcept
 size_t HardwareSerial::write(const uint8_t *buffer, size_t size) noexcept
 {
   size_t ret = size;
-#if 0
-  while (size-- > 0)
-    write(*buffer++);
-  return ret;
-#endif
-  uart_update_tx(&_serial);
   while (size > 0)
   {
     size_t len = writeBlock(buffer, size);
-    _serial.tx_count += len;
     size -= len;
     buffer += len;
     if (len && !serial_tx_active(&_serial))

@@ -102,7 +102,7 @@ static serial_t serial_debug = { .uart = NP, .index = UART_NUM };
 
 /* Aim of the function is to get serial_s pointer using huart pointer */
 /* Highly inspired from magical linux kernel's "container_of" */
-serial_t *get_serial_obj(UART_HandleTypeDef *huart)
+serial_t inline *get_serial_obj(UART_HandleTypeDef *huart)
 {
   struct serial_s *obj_s;
   serial_t *obj;
@@ -373,6 +373,7 @@ void uart_init(serial_t *obj, uint32_t baudrate, uint32_t databits, uint32_t par
 void uart_deinit(serial_t *obj)
 {
   /* Reset UART and disable clock */
+  HAL_NVIC_DisableIRQ(obj->irq);
   switch (obj->index) {
 #if defined(USART1_BASE)
     case UART1_INDEX:
@@ -657,42 +658,6 @@ uint8_t serial_tx_active(serial_t *obj)
   return ((HAL_UART_GetState(uart_handlers[obj->index]) & HAL_UART_STATE_BUSY_TX) == HAL_UART_STATE_BUSY_TX);
 }
 
-/**
-  * @brief  Update the buffer pointers to match current read position
-  * @param  obj : pointer to serial_t structure
-  * @retval last character received
-  */
-int uart_update_rx(serial_t *obj)
-{
-  //return 0;
-  if (obj == NULL || !serial_rx_active(obj)) {
-    return -1;
-  }
-  cpu_irq_disable();
-  uint32_t pos = (uart_handlers[obj->index]->pRxBuffPtr - obj->rx_buff) % SERIAL_RX_BUFFER_SIZE;
-  // Check for possible overflow and don't update
-  if (obj->rx_tail != pos)
-    obj->rx_head = pos;
-  cpu_irq_enable();
-  return 0;
-}
-
-
-/**
-  * @brief  Update the buffer pointers to match current write position
-  * @param  obj : pointer to serial_t structure
-  * @retval last character received
-  */
-int uart_update_tx(serial_t *obj)
-{
-  if (obj == NULL || !serial_tx_active(obj)) {
-    return -1;
-  }
-  cpu_irq_disable();
-  obj->tx_tail = (uart_handlers[obj->index]->pTxBuffPtr - obj->tx_buff) % SERIAL_TX_BUFFER_SIZE;
-  cpu_irq_enable();
-  return 0;
-}
 
 /**
  * Begin asynchronous RX transfer (enable interrupt for data collecting)
@@ -710,16 +675,7 @@ void uart_start_rx(serial_t *obj)
   if (serial_rx_active(obj)) {
     return;
   }
-
-  /* Must disable interrupt to prevent handle lock contention */
-  cpu_irq_disable();
-
   HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[0]), SERIAL_RX_BUFFER_SIZE);      
-  //HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[0]), 1);      
-  cpu_irq_enable();
-
-  /* Enable interrupt */
-  //HAL_NVIC_SetPriority(obj->irq, UART_IRQ_PRIO, UART_IRQ_SUBPRIO);
 }
 
 /**
@@ -734,18 +690,8 @@ void uart_start_tx(serial_t *obj)
     return;
   }
 
-  /* Must disable interrupt to prevent handle lock contention */
-  //HAL_NVIC_DisableIRQ(obj->irq);
-  cpu_irq_disable();
   if (!serial_tx_active(obj) && obj->tx_tail != obj->tx_head) {
-    uint32_t len;
-    if (obj->tx_head > obj->tx_tail)
-      len = obj->tx_head - obj->tx_tail;
-    else
-      len = SERIAL_TX_BUFFER_SIZE - obj->tx_tail;
-    cpu_irq_disable();      
-    HAL_UART_Transmit_IT(uart_handlers[obj->index], &obj->tx_buff[obj->tx_tail], len);
-    cpu_irq_enable();
+    HAL_UART_Transmit_IT(uart_handlers[obj->index], &obj->tx_buff[obj->tx_tail], 1);
   }
 }
 
@@ -778,74 +724,6 @@ uint8_t uart_index(UART_HandleTypeDef *huart)
 }
 */
 
-/**
-  * @brief  Rx Transfer completed callback
-  * @param  UartHandle pointer on the uart reference
-  * @retval None
-  */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  serial_t *obj = get_serial_obj(huart);
-  if (obj) {
-  #if 1
-    // update the read ponter and check for overflow
-    uint32_t pos = (uart_handlers[obj->index]->pRxBuffPtr - obj->rx_buff) % SERIAL_RX_BUFFER_SIZE;
-    if (obj->rx_tail != pos)
-      obj->rx_head = pos;
-    else if (pos != obj->rx_head)
-      obj->rx_full++;  
-    obj->rx_ints++;
-    // do we have space for more?
-    uint32_t len;
-    if (((obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE) != obj->rx_tail)
-    {
-      // yes work out how much to read in one go
-      if (obj->rx_head < obj->rx_tail)
-        len = obj->rx_tail - obj->rx_head - 1;
-      else if (obj->rx_tail > 0)
-        len = SERIAL_RX_BUFFER_SIZE - obj->rx_head;
-      else
-        len = SERIAL_RX_BUFFER_SIZE - obj->rx_head - 1;      
-    }
-    else
-      // no space, allow just a single byte which will overwrite the "full" slot
-      len = 1;
-    
-    HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[obj->rx_head]), len);
-  #else
-    uint32_t pos = (obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
-    if (pos != obj->rx_tail)
-      obj->rx_head = pos;
-    HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[obj->rx_head]), 1);
-  #endif  
-
-  }
-}
-
-/**
-  * @brief  Tx Transfer completed callback
-  * @param  UartHandle pointer on the uart reference
-  * @retval None
-  */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-  serial_t *obj = get_serial_obj(huart);
-
-  if (obj) {
-    obj->tx_ints++;
-    // update write pointer
-    obj->tx_tail = (uart_handlers[obj->index]->pTxBuffPtr - obj->tx_buff) % SERIAL_TX_BUFFER_SIZE;
-    // do we have more to send?
-    if (obj->tx_tail != obj->tx_head) {
-      uint32_t len;
-      if (obj->tx_head > obj->tx_tail)
-        len = obj->tx_head - obj->tx_tail;
-      else
-        len = SERIAL_TX_BUFFER_SIZE - obj->tx_tail;      
-      HAL_UART_Transmit_IT(huart, &obj->tx_buff[obj->tx_tail], len);
-    }
-  }
-}
 
 /**
   * @brief  error callback from UART
@@ -881,8 +759,177 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     obj->hw_error++;
     if (!serial_rx_active(obj)) {
       HAL_UART_Receive_IT(uart_handlers[obj->index], &(obj->rx_buff[obj->rx_head]), 1);
-      //HAL_UART_RxCpltCallback(huart);
     }
+  }
+}
+
+/**
+  * @brief  Receives an amount of data in non blocking mode
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval HAL status
+  */
+static inline HAL_StatusTypeDef UART_Receive_IT(UART_HandleTypeDef *huart)
+{
+  serial_t *obj = get_serial_obj(huart);
+  uint8_t val = (uint8_t)(huart->Instance->DR & (uint8_t)0x00FF);
+  uint32_t pos = (obj->rx_head + 1) % SERIAL_RX_BUFFER_SIZE;
+  if (pos != obj->rx_tail)
+  {
+    obj->rx_buff[obj->rx_head] = val;
+    obj->rx_head = pos;
+  }
+  else
+    obj->rx_full++;
+  return HAL_OK;
+}
+
+/**
+  * @brief  Sends an amount of data in non blocking mode.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval HAL status
+  */
+static inline HAL_StatusTypeDef UART_Transmit_IT(UART_HandleTypeDef *huart)
+{
+  serial_t *obj = get_serial_obj(huart);
+  // write the data
+  huart->Instance->DR = obj->tx_buff[obj->tx_tail];
+  // update write pointer
+  obj->tx_tail = (obj->tx_tail + 1) % SERIAL_TX_BUFFER_SIZE;
+  // do we have more to send?
+  if (obj->tx_tail == obj->tx_head)
+  {
+    /* Disable the UART Transmit empty Interrupt */
+    __HAL_UART_DISABLE_IT(huart, UART_IT_TXE);
+
+    /* Enable the UART Transmit Complete Interrupt */
+    __HAL_UART_ENABLE_IT(huart, UART_IT_TC);
+  }
+  return HAL_OK;
+}
+
+/**
+  * @brief  Wraps up transmission in non blocking mode.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval HAL status
+  */
+static HAL_StatusTypeDef UART_EndTransmit_IT(UART_HandleTypeDef *huart)
+{
+  serial_t *obj = get_serial_obj(huart);
+  // has more data arrived while we waited?
+  if (obj->tx_tail != obj->tx_head)
+  {
+    // Yes so send the data
+    huart->Instance->DR = obj->tx_buff[obj->tx_tail];
+    // update write pointer
+    obj->tx_tail = (obj->tx_tail + 1) % SERIAL_TX_BUFFER_SIZE;
+    // do we have more to send?
+    if (obj->tx_tail != obj->tx_head)
+    {
+      /* Enable the UART Transmit empty Interrupt */
+      __HAL_UART_ENABLE_IT(huart, UART_IT_TXE);
+      __HAL_UART_DISABLE_IT(huart, UART_IT_TC);
+    }
+    return HAL_OK;
+  }
+  // No data left to send
+  /* Disable the UART Transmit Complete Interrupt */
+  __HAL_UART_DISABLE_IT(huart, UART_IT_TC);
+  /* Tx process is ended, restore huart->gState to Ready */
+  huart->gState = HAL_UART_STATE_READY;
+  return HAL_OK;
+}
+
+/**
+  * @brief  This function handles UART interrupt request.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval None
+  */
+static void UART_IRQHandler(UART_HandleTypeDef *huart)
+{
+  uint32_t isrflags   = READ_REG(huart->Instance->SR);
+  uint32_t cr1its     = READ_REG(huart->Instance->CR1);
+  uint32_t cr3its     = READ_REG(huart->Instance->CR3);
+  uint32_t errorflags = 0x00U;
+
+  /* If no error occurs */
+  errorflags = (isrflags & (uint32_t)(USART_SR_PE | USART_SR_FE | USART_SR_ORE | USART_SR_NE));
+  if (errorflags == RESET)
+  {
+    /* UART in mode Receiver -------------------------------------------------*/
+    if (((isrflags & USART_SR_RXNE) != RESET) && ((cr1its & USART_CR1_RXNEIE) != RESET))
+    {
+      UART_Receive_IT(huart);
+      return;
+    }
+  }
+
+  /* If some errors occur */
+  if ((errorflags != RESET) && (((cr3its & USART_CR3_EIE) != RESET) || ((cr1its & (USART_CR1_RXNEIE | USART_CR1_PEIE)) != RESET)))
+  {
+    /* UART parity error interrupt occurred ----------------------------------*/
+    if (((isrflags & USART_SR_PE) != RESET) && ((cr1its & USART_CR1_PEIE) != RESET))
+    {
+      huart->ErrorCode |= HAL_UART_ERROR_PE;
+    }
+
+    /* UART noise error interrupt occurred -----------------------------------*/
+    if (((isrflags & USART_SR_NE) != RESET) && ((cr3its & USART_CR3_EIE) != RESET))
+    {
+      huart->ErrorCode |= HAL_UART_ERROR_NE;
+    }
+
+    /* UART frame error interrupt occurred -----------------------------------*/
+    if (((isrflags & USART_SR_FE) != RESET) && ((cr3its & USART_CR3_EIE) != RESET))
+    {
+      huart->ErrorCode |= HAL_UART_ERROR_FE;
+    }
+
+    /* UART Over-Run interrupt occurred --------------------------------------*/
+    if (((isrflags & USART_SR_ORE) != RESET) && (((cr1its & USART_CR1_RXNEIE) != RESET) || ((cr3its & USART_CR3_EIE) != RESET)))
+    {
+      huart->ErrorCode |= HAL_UART_ERROR_ORE;
+    }
+
+    /* Call UART Error Call back function if need be --------------------------*/
+    if (huart->ErrorCode != HAL_UART_ERROR_NONE)
+    {
+      /* UART in mode Receiver -----------------------------------------------*/
+      if (((isrflags & USART_SR_RXNE) != RESET) && ((cr1its & USART_CR1_RXNEIE) != RESET))
+      {
+        UART_Receive_IT(huart);
+      }
+
+      /* Non Blocking error : transfer could go on.
+          Error is notified to user through user error callback */
+#if (USE_HAL_UART_REGISTER_CALLBACKS == 1)
+      /*Call registered error callback*/
+      huart->ErrorCallback(huart);
+#else
+      /*Call legacy weak error callback*/
+      HAL_UART_ErrorCallback(huart);
+#endif /* USE_HAL_UART_REGISTER_CALLBACKS */
+
+      huart->ErrorCode = HAL_UART_ERROR_NONE;
+    }
+    return;
+  } /* End if some error occurs */
+
+  /* UART in mode Transmitter ------------------------------------------------*/
+  if (((isrflags & USART_SR_TXE) != RESET) && ((cr1its & USART_CR1_TXEIE) != RESET))
+  {
+    UART_Transmit_IT(huart);
+    return;
+  }
+
+  /* UART in mode Transmitter end --------------------------------------------*/
+  if (((isrflags & USART_SR_TC) != RESET) && ((cr1its & USART_CR1_TCIE) != RESET))
+  {
+    UART_EndTransmit_IT(huart);
+    return;
   }
 }
 
@@ -895,7 +942,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 void USART1_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(USART1_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART1_INDEX]);
+  UART_IRQHandler(uart_handlers[UART1_INDEX]);
 }
 #endif
 
@@ -908,7 +955,7 @@ void USART1_IRQHandler(void)
 void USART2_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(USART2_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART2_INDEX]);
+  UART_IRQHandler(uart_handlers[UART2_INDEX]);
 }
 #endif
 
@@ -923,38 +970,38 @@ void USART3_IRQHandler(void)
   HAL_NVIC_ClearPendingIRQ(USART3_IRQn);
 #if defined(STM32F091xC) || defined (STM32F098xx)
   if (__HAL_GET_PENDING_IT(HAL_ITLINE_USART3) != RESET) {
-    HAL_UART_IRQHandler(uart_handlers[UART3_INDEX]);
+    UART_IRQHandler(uart_handlers[UART3_INDEX]);
   }
   if (__HAL_GET_PENDING_IT(HAL_ITLINE_USART4) != RESET) {
-    HAL_UART_IRQHandler(uart_handlers[UART4_INDEX]);
+    UART_IRQHandler(uart_handlers[UART4_INDEX]);
   }
   if (__HAL_GET_PENDING_IT(HAL_ITLINE_USART5) != RESET) {
-    HAL_UART_IRQHandler(uart_handlers[UART5_INDEX]);
+    UART_IRQHandler(uart_handlers[UART5_INDEX]);
   }
   if (__HAL_GET_PENDING_IT(HAL_ITLINE_USART6) != RESET) {
-    HAL_UART_IRQHandler(uart_handlers[UART6_INDEX]);
+    UART_IRQHandler(uart_handlers[UART6_INDEX]);
   }
   if (__HAL_GET_PENDING_IT(HAL_ITLINE_USART7) != RESET) {
-    HAL_UART_IRQHandler(uart_handlers[UART7_INDEX]);
+    UART_IRQHandler(uart_handlers[UART7_INDEX]);
   }
   if (__HAL_GET_PENDING_IT(HAL_ITLINE_USART8) != RESET) {
-    HAL_UART_IRQHandler(uart_handlers[UART8_INDEX]);
+    UART_IRQHandler(uart_handlers[UART8_INDEX]);
   }
 #else
   if (uart_handlers[UART3_INDEX] != NULL) {
-    HAL_UART_IRQHandler(uart_handlers[UART3_INDEX]);
+    UART_IRQHandler(uart_handlers[UART3_INDEX]);
   }
 #if defined(STM32F0xx)
   /* USART3_4_IRQn */
   if (uart_handlers[UART4_INDEX] != NULL) {
-    HAL_UART_IRQHandler(uart_handlers[UART4_INDEX]);
+    UART_IRQHandler(uart_handlers[UART4_INDEX]);
   }
 #if defined(STM32F030xC)
   if (uart_handlers[UART5_INDEX] != NULL) {
-    HAL_UART_IRQHandler(uart_handlers[UART5_INDEX]);
+    UART_IRQHandler(uart_handlers[UART5_INDEX]);
   }
   if (uart_handlers[UART6_INDEX] != NULL) {
-    HAL_UART_IRQHandler(uart_handlers[UART6_INDEX]);
+    UART_IRQHandler(uart_handlers[UART6_INDEX]);
   }
 #endif /* STM32F030xC */
 #endif /* STM32F0xx */
@@ -971,7 +1018,7 @@ void USART3_IRQHandler(void)
 void UART4_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(UART4_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART4_INDEX]);
+  UART_IRQHandler(uart_handlers[UART4_INDEX]);
 }
 #endif
 
@@ -986,10 +1033,10 @@ void USART4_5_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(USART4_IRQn);
   if (uart_handlers[UART4_INDEX] != NULL) {
-    HAL_UART_IRQHandler(uart_handlers[UART4_INDEX]);
+    UART_IRQHandler(uart_handlers[UART4_INDEX]);
   }
   if (uart_handlers[UART5_INDEX] != NULL) {
-    HAL_UART_IRQHandler(uart_handlers[UART5_INDEX]);
+    UART_IRQHandler(uart_handlers[UART5_INDEX]);
   }
 }
 #endif
@@ -1004,7 +1051,7 @@ void USART4_5_IRQHandler(void)
 void UART5_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(UART5_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART5_INDEX]);
+  UART_IRQHandler(uart_handlers[UART5_INDEX]);
 }
 #endif
 
@@ -1017,7 +1064,7 @@ void UART5_IRQHandler(void)
 void USART6_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(USART6_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART6_INDEX]);
+  UART_IRQHandler(uart_handlers[UART6_INDEX]);
 }
 #endif
 
@@ -1030,7 +1077,7 @@ void USART6_IRQHandler(void)
 void LPUART1_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(LPUART1_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[LPUART1_INDEX]);
+  UART_IRQHandler(uart_handlers[LPUART1_INDEX]);
 }
 #endif
 
@@ -1043,7 +1090,7 @@ void LPUART1_IRQHandler(void)
 void UART7_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(UART7_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART7_INDEX]);
+  UART_IRQHandler(uart_handlers[UART7_INDEX]);
 }
 #endif
 
@@ -1056,7 +1103,7 @@ void UART7_IRQHandler(void)
 void UART8_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(UART8_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART8_INDEX]);
+  UART_IRQHandler(uart_handlers[UART8_INDEX]);
 }
 #endif
 
@@ -1069,7 +1116,7 @@ void UART8_IRQHandler(void)
 void UART9_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(UART9_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART9_INDEX]);
+  UART_IRQHandler(uart_handlers[UART9_INDEX]);
 }
 #endif
 
@@ -1082,7 +1129,7 @@ void UART9_IRQHandler(void)
 void UART10_IRQHandler(void)
 {
   HAL_NVIC_ClearPendingIRQ(UART10_IRQn);
-  HAL_UART_IRQHandler(uart_handlers[UART10_INDEX]);
+  UART_IRQHandler(uart_handlers[UART10_INDEX]);
 }
 #endif
 

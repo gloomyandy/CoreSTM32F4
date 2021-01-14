@@ -86,12 +86,7 @@ struct serial_s {
   volatile uint32_t rx_head;
   volatile uint32_t tx_tail;
 
-  uint32_t tx_count;
-  uint32_t tx_ints;
-  uint32_t tx_full;
-  uint32_t rx_count;
   uint32_t rx_full;
-  uint32_t rx_ints;
   uint32_t hw_error;
 };
 
@@ -187,8 +182,6 @@ void uart_deinit(serial_t *obj);
 void uart_config_lowpower(serial_t *obj);
 #endif
 size_t uart_write(serial_t *obj, uint8_t data, uint16_t size);
-int uart_update_rx(serial_t *obj);
-int uart_update_tx(serial_t *obj);
 void uart_start_rx(serial_t *obj);
 void uart_start_tx(serial_t *obj);
 void uart_set_interrupt_priority(serial_t *obj, uint32_t priority);
