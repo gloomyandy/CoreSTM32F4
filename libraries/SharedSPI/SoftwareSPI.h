@@ -25,6 +25,8 @@ private:
     Pin sck;
     Pin mosi;
     Pin miso;
+    uint32_t mode;
+    uint32_t delay;
 };
 
 
