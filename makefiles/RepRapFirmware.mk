@@ -6,7 +6,7 @@ RRF_SRC_DIRS = FilamentMonitors GCodes GCodes/GCodeBuffer Heating
 RRF_SRC_DIRS += Movement Movement/BedProbing Movement/Kinematics 
 RRF_SRC_DIRS += Storage Libraries/sha1 Comms
 RRF_SRC_DIRS += Heating/Sensors Fans ObjectModel Endstops Hardware Hardware/SharedSpi Tools
-RRF_SRC_DIRS += Display Display/ST7920 GPIO bossa
+RRF_SRC_DIRS += Display Display/Lcd Display/Lcd/Fonts Display/Lcd/ST7567 Display/Lcd/ST7920 GPIO bossa
 
 #STM RRF Addons
 RRF_SRC_DIRS += targets/STM32 targets/common targets/STM32/FatFS targets/common/FatFS targets/common/Fans
