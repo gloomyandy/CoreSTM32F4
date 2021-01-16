@@ -26,7 +26,13 @@ HardwarePWM::HardwarePWM() noexcept : timer(nullptr), channel(0)
 
 void HardwarePWM::free() noexcept
 {
-    if (timer) timer->setMode(channel, TIMER_DISABLED);
+    //debugPrintf("Free timer chan %d\n", channel);
+    if (timer) 
+    {
+        timer->pause();
+        timer->setMode(channel, TIMER_DISABLED);
+        timer->resume();
+    }
     timer = nullptr;
     channel = 0;
 }

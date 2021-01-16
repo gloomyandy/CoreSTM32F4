@@ -65,9 +65,14 @@ void HybridPWMPin::set(float value, uint32_t freq) noexcept
         if (freq != 0)
         {
             pwm = HybridPWMBase::allocate(this, pin, freq, value);
+            this->value = value;
+        }
+        else
+        {
+            pwm = nullptr;
+            this->value = -1.0f;
         }
         this->freq = freq;
-        this->value = value;
     }
     if (this->value != value)
     {
