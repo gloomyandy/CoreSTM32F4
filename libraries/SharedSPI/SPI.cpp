@@ -14,6 +14,8 @@ SPI *SPI::getSSPDevice(SSPChannel channel)
         case SSP2: return &HardwareSPI::SSP2; break;
         case SSP3: return &HardwareSPI::SSP3; break;
         case SWSPI0: return &SoftwareSPI::SWSSP0; break;
+        case SWSPI1: return &SoftwareSPI::SWSSP1; break;
+        case SWSPI2: return &SoftwareSPI::SWSSP2; break;
         default: return nullptr;
     }
 }

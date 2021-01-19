@@ -68,11 +68,16 @@ enum SSPChannel : uint8_t
     SSP3,
     //Software SPI
     SWSPI0,
+    SWSPI1,
+    SWSPI2,
     // Hardware SDIO
-    SSPSDIO,
+    SSPSDIO = 0xef,
     // Not defined
     SSPNONE = 0xff
 };
+constexpr size_t NumSPIDevices = (uint32_t)SWSPI2+1;
+constexpr size_t NumSoftwareSPIDevices = 3;
+
 // Definitions for PWM channels
 enum EPWMChannel : int8_t
 {

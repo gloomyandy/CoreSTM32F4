@@ -17,6 +17,8 @@ static constexpr uint32_t timingCycleCount = 18;
 extern "C" void debugPrintf(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 
 SoftwareSPI SoftwareSPI::SWSSP0;
+SoftwareSPI SoftwareSPI::SWSSP1;
+SoftwareSPI SoftwareSPI::SWSSP2;
 
 bool SoftwareSPI::waitForTxEmpty() noexcept
 {
@@ -37,6 +39,8 @@ void SoftwareSPI::configureDevice(uint32_t bits, uint32_t clockMode, uint32_t bi
 {
     if(needInit)
     {
+        if (sck == NoPin)
+            debugPrintf("Warning: Software SPI %d clock pin is not configured, check configuration\n", (this == &SWSSP0 ? 0 : this == &SWSSP1 ? 1 : 0));
         mode = clockMode;
         // Work out what delays we need to meet the requested bit rate.
         uint32_t targetCycleNanos = 1000000/(bitRate/1000);
@@ -65,6 +69,7 @@ SoftwareSPI::SoftwareSPI() noexcept
 
 spi_status_t SoftwareSPI::transceivePacket(const uint8_t *tx_data, uint8_t *rx_data, size_t len) noexcept
 {
+    if (sck == NoPin) return SPI_ERROR;
     for (uint32_t i = 0; i < len; ++i)
     {
         uint32_t dOut = (tx_data == nullptr) ? 0x000000FF : (uint32_t)*tx_data++;
