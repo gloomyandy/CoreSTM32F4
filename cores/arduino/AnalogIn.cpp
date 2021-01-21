@@ -26,7 +26,7 @@ constexpr uint32_t NumADCs = 3;                          // Max supported ADCs
 constexpr uint32_t OversampleBits = 2;                   // Number of extra bit of resolution
 constexpr uint32_t Oversample = 16;                      // 4^OversampleBits
 constexpr uint32_t MaxActiveChannels = 16;               // Max active ADC channels
-constexpr uint32_t NumChannelsADC1 = ADC_CHANNEL_TEMPSENSOR+1;
+constexpr uint32_t NumChannelsADC1 = ADC_CHANNEL_VREFINT+1;
 constexpr uint32_t NumChannelsADC3 = 16;
 constexpr AnalogChannelNumber ADC_1 = 0x10000;
 constexpr AnalogChannelNumber ADC_2 = 0x20000;
@@ -540,5 +540,11 @@ AnalogChannelNumber PinToAdcChannel(uint32_t pin)
 AnalogChannelNumber GetTemperatureAdcChannel()
 {
     return (ADC_1 | ADC_CHANNEL_TEMPSENSOR);
+}
+
+// Get the temperature measurement channel
+AnalogChannelNumber GetVREFAdcChannel()
+{
+    return (ADC_1 | ADC_CHANNEL_VREFINT);
 }
 // End
