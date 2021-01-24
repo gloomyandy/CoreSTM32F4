@@ -11,7 +11,8 @@ BUILD ?= Debug
 
 NETWORK ?= ESP8266WIFI
 
-TMC22XX ?= true
+#TMC22XX ?= true
+TMC51XX ?= true
 
 STARTUP_DELAY ?= -DSTARTUP_DELAY=10000
 
@@ -93,6 +94,9 @@ endif
 ifeq ($(TMC22XX), true)
         $(info  - Smart Drivers: TMC22XX)
         FLAGS += -DSUPPORT_TMC22xx
+else ifeq ($(TMC51XX), true)
+        $(info  - Smart Drivers: TMC51XX)
+        FLAGS += -DSUPPORT_TMC51xx
 else
         $(info  - Smart Drivers: None)
 endif

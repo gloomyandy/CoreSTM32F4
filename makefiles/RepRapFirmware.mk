@@ -27,6 +27,9 @@ endif
 ifeq ($(TMC22XX), true)
 	RRF_SRC_DIRS += targets/STM32/Movement/StepperDrivers targets/common/Movement/StepperDrivers Movement/StepperDrivers
 endif
+ifeq ($(TMC51XX), true)
+	RRF_SRC_DIRS += Movement/StepperDrivers
+endif
 
 #Find the c and cpp source files
 RRF_SRC = $(RRF_SRC_BASE) $(addprefix $(RRF_SRC_BASE)/, $(RRF_SRC_DIRS))
