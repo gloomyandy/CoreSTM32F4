@@ -40,7 +40,7 @@ void SoftwareSPI::configureDevice(uint32_t bits, uint32_t clockMode, uint32_t bi
     if(needInit)
     {
         if (sck == NoPin)
-            debugPrintf("Warning: Software SPI %d clock pin is not configured, check configuration\n", (this == &SWSSP0 ? 0 : this == &SWSSP1 ? 1 : 0));
+            debugPrintf("Warning: Software SPI %d clock pin is not configured, check configuration\n", (this == &SWSSP0 ? 0 : this == &SWSSP1 ? 1 : 2));
         mode = clockMode;
         // Work out what delays we need to meet the requested bit rate.
         uint32_t targetCycleNanos = 1000000/(bitRate/1000);
@@ -191,7 +191,7 @@ uint8_t SoftwareSPI::mode01TransferByte(uint8_t byte_out) noexcept
 /*
  * Simultaneously transmit and receive a byte on the SPI.
  *
- * Supports mode 3 and mode 3.
+ * Supports mode 2 and mode 3.
  *
  * Returns the received byte.
  
@@ -208,7 +208,7 @@ uint8_t SoftwareSPI::mode23TransferByte(uint8_t byte_out) noexcept
         if (delay == 0)
         {
             for (bit = 0x80; bit; bit >>= 1) {
-                /* Pull the clock line high */
+                /* Pull the clock line low */
                 fastDigitalWriteLow(sck);
                 /* Shift-out a bit to the MOSI line */
                 if (mosi != NoPin)
@@ -218,7 +218,7 @@ uint8_t SoftwareSPI::mode23TransferByte(uint8_t byte_out) noexcept
                     else
                         fastDigitalWriteLow(mosi);
                 }
-                /* Pull the clock line low */
+                /* Pull the clock line high */
                 fastDigitalWriteHigh(sck);
                 /* Shift-in a bit from the MISO line */
                 if (miso != NoPin && fastDigitalRead(miso))
