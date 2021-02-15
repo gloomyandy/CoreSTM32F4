@@ -8,6 +8,7 @@
 #ifndef ANALOGIN_H_
 #define ANALOGIN_H_
 #include "pins_arduino.h"
+#include "stm32f4xx_ll_adc.h"
 #ifdef __cplusplus
 
 // Module initialisation
@@ -20,7 +21,11 @@ void AnalogInEnableChannel(AnalogChannelNumber channel, bool enable) noexcept;
 //static constexpr unsigned int AdcBits = ADC_RESOLUTION;
 // Hardware is 12bit we oversample up to 14
 static constexpr unsigned int AdcBits = 14;
-
+// ADC VREF and MCU Temperature calibration values
+#define TEMPSENSOR_CAL1_DEF 931
+#define TEMPSENSOR_CAL2_DEF 1197
+#define VREFINT_CAL_DEF 1500
+#define GET_ADC_CAL(CAL, DEF) (*CAL == 0xffff ? DEF : *CAL)
 // Read the most recent result from a channel
 uint16_t AnalogInReadChannel(AnalogChannelNumber channel) noexcept;
 
